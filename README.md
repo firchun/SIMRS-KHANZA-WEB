@@ -1,66 +1,206 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# SIMRS Khanza — Web Desktop
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Aplikasi **SIMRS Khanza** berbasis web dengan antarmuka desktop (windowed UI). Dibangun di atas database SIMRS Khanza yang sudah ada, menyediakan modul-modul klinis, farmasi, dan kasir dalam bentuk Single Page Application dengan tampilan seperti sistem operasi desktop.
 
-## About Laravel
+> **Fokus**: Sistem informasi rumah sakit — pendaftaran, IGD, rawat jalan, rawat inap, kasir, apotek/farmasi, bridging BPJS.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+---
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Teknologi
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+| Bagian | Teknologi |
+|--------|-----------|
+| **Backend** | Laravel 11, PHP 8.2 |
+| **Frontend** | Alpine.js 3, Tailwind CSS 3 |
+| **Auth** | Laravel Sanctum (token-based) |
+| **Database** | MySQL (SIMRS Khanza existing schema) + SQLite (Laravel internal) |
+| **Build** | Vite 6 |
+| **PWA** | Service Worker + Manifest |
+| **Dependensi JS** | Axios, Alpine.js |
+| **Dependensi PHP** | Laravel, Sanctum, Tinker |
 
-## Learning Laravel
+---
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Struktur Folder
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+```
+├── app/
+│   ├── Http/
+│   │   ├── Controllers/
+│   │   │   ├── Api/              # 13 API controllers
+│   │   │   │   ├── ApotekController.php
+│   │   │   │   ├── AuthController.php
+│   │   │   │   ├── DashboardController.php
+│   │   │   │   ├── IcdController.php
+│   │   │   │   ├── IgdController.php
+│   │   │   │   ├── JadwalController.php
+│   │   │   │   ├── KasirController.php
+│   │   │   │   ├── PasienController.php
+│   │   │   │   ├── RalanController.php
+│   │   │   │   ├── RanapController.php
+│   │   │   │   ├── RegistrasiController.php
+│   │   │   │   ├── SettingsController.php
+│   │   │   │   └── TindakanController.php
+│   │   │   └── DesktopController.php   # Serves SPA views
+│   │   └── ─
+│   └── Models/                   # 12 Eloquent models
+│
+├── resources/
+│   ├── css/app.css               # Tailwind + custom CSS + theme variables
+│   ├── js/
+│   │   ├── app.js                # Alpine store & component definitions
+│   │   ├── bootstrap.js          # Axios setup
+│   │   └── desktop/
+│   │       ├── api.js            # API client (fetch + cache)
+│   │       └── window-manager.js # Window management (open/close/drag/resize)
+│   └── views/
+│       ├── auth/login.blade.php
+│       ├── layouts/desktop.blade.php
+│       ├── desktop/
+│       │   ├── index.blade.php
+│       │   ├── start-menu.blade.php
+│       │   ├── taskbar.blade.php
+│       │   ├── window-container.blade.php
+│       │   └── modules/          # 23 module views
+│       └── welcome.blade.php
+│
+├── routes/
+│   ├── api.php                   # ±85 endpoint definitions
+│   ├── web.php                   # Login & SPA routes
+│   └── console.php
+│
+├── public/
+│   ├── build/assets/             # Compiled Vite output
+│   ├── icons/                    # PWA icons
+│   └── sw.js                     # Service Worker
+│
+├── config/                       # 11 Laravel config files
+├── database/
+│   ├── migrations/               # Schema migrations
+│   └── seeders/                  # Seeders (users, master data)
+└── tests/
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-## Laravel Sponsors
+## Modul Saat Ini
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+| Modul | File View | Fitur |
+|-------|-----------|-------|
+| **Registrasi** | `registrasi/index` | Pendaftaran pasien baru, cari pasien, pilih poli/dokter |
+| **IGD** | `igd/index`, `igd/tindakan` | Daftar pasien IGD, triage, tindakan, diagnosis, edit pasien |
+| **Ralan** | `ralan/queue` | Antrian rawat jalan, pemeriksaan, resep |
+| **Ranap** | `ranap/index`, `ranap/admission` | Daftar rawat inap, admit, pindah kamar, pulangkan, riwayat kamar, ubah waktu |
+| **Kasir** | `kasir/index`, `kasir/nota` | Tagihan rawat jalan, rawat inap, kamar, laporan |
+| **Apotek** | `apotek/index` | Master data: industri farmasi, jenis/kategori/golongan obat, data barang, kode satuan |
+| **Pasien** | `pasien/index`, `pasien/detail`, `pasien/riwayat` | Cari, tambah, edit pasien, detail & riwayat kunjungan |
+| **Jadwal** | `jadwal/index` | Jadwal praktik dokter, master poli, master penjab (jenis bayar) |
+| **Data Tindakan** | `data-tindakan/index` | Master tarif tindakan per jenis |
+| **ICD** | `icd/index` | Pencarian ICD-10 dan ICD-9 |
+| **Bridging BPJS** | `bridging/sep`, `bridging/surat-kontrol`, `bridging/prb` | SEP, Surat Kontrol, PRB |
+| **Berkas Perawatan** | `berkas-perawatan/index` | Berkas perawatan pasien |
+| **Settings** | `settings/index` | Identitas rumah sakit, depo, industri farmasi |
+| **Chatbot** | `chatbot/index` | Asisten AI |
+| **Developers** | `developers/index` | Informasi teknis & debug |
 
-### Premium Partners
+---
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+## Instalasi & Setup
 
-## Contributing
+### Prasyarat
+- PHP 8.2+
+- Composer
+- Node.js 18+
+- MySQL (database SIMRS Khanza yang sudah ada)
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Langkah
 
-## Code of Conduct
+```bash
+# 1. Clone & masuk direktori
+git clone <url-repo> khanza-web
+cd khanza-web
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+# 2. Install dependencies
+composer install
+npm install
 
-## Security Vulnerabilities
+# 3. Copy environment & atur koneksi database
+cp .env.example .env
+# Edit .env: atur DB connection ke database SIMRS Khanza
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+# 4. Generate key & storage link
+php artisan key:generate
+php artisan storage:link
 
-## License
+# 5. Jalankan migrasi (untuk tabel internal Laravel)
+php artisan migrate
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+# 6. Build frontend
+npm run build
+
+# 7. Jalankan server
+php artisan serve
+```
+
+### Database SIMRS Khanza
+
+Aplikasi ini terhubung ke database **SIMRS Khanza** yang sudah ada (`sik`). Konfigurasi koneksi di `.env`:
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=sik
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+### Login
+
+Sistem login menggunakan akun **SIMRS Khanza** yang sudah ada (tabel `user` / `admin`), diverifikasi dengan `AES_DECRYPT`.
+
+---
+
+## API Endpoint
+
+Semua endpoint API berada di prefix `/api/` dan diamankan dengan **Laravel Sanctum** (Bearer token).
+
+### Publik
+| Method | Path | Keterangan |
+|--------|------|------------|
+| POST | `/api/login` | Login |
+
+### Terautentikasi
+| Grup | Endpoints |
+|------|-----------|
+| **Dashboard** | `GET /dashboard/stats`, `GET /pasien/search-location` |
+| **Pasien** | CRUD `/pasien`, search, dokter-list, search-regperiksa |
+| **Registrasi** | today-list, store, dokter-by-poli, petugas-list |
+| **IGD** | list, dashboard, register, status, update, tindakan, triage, diagnosis |
+| **Ralan** | list, poli-list, dokter-list, dashboard, queue, register, examination, resep |
+| **Ranap** | list, dashboard, admit, pindah-kamar, pulangkan, destroy, ubah-waktu, kamar-list, riwayat-kamar |
+| **Kasir** | rajal, ranap, kamar, laporan |
+| **Tindakan** | jns-perawatan, petugas-list, penanganan (IGD/Ranap), riwayat, SOAP |
+| **Apotek** | industri, jenis, kategori, golongan, kodesatuan, databarang |
+| **ICD** | search |
+| **Jadwal** | praktek, poli CRUD, penjab CRUD |
+| **Settings** | identitas (get/update), depo-list, industri-farmasi |
+| **Data Tindakan** | list/{jenis} |
+
+---
+
+## Pengembangan
+
+```bash
+# Jalankan dev server dengan hot-reload
+npm run dev
+
+# Build untuk production
+npm run build
+```
+
+---
+
+## Lisensi
+
+MIT
