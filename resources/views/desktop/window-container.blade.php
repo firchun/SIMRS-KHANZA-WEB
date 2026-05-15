@@ -5,10 +5,12 @@
         prevPos: null,
         minW: 400,
         minH: 300,
+        loading: true,
         init() {
             this.loadContent();
         },
         async loadContent() {
+            this.loading = true;
             try {
                 const res = await fetch('/desktop/modules/' + win.module, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
                 const html = res.ok ? await res.text() : '<div class=\'flex items-center justify-center h-full text-red-400\'>Gagal memuat</div>';
@@ -18,6 +20,8 @@
                 console.log('Load error:', e);
                 const el = this.$refs.moduleContainer;
                 if (el) el.innerHTML = '<div class=\'flex items-center justify-center h-full text-red-400\'>Error: ' + e.message + '</div>';
+            } finally {
+                this.loading = false;
             }
         },
         close() { this.$store.windows.close(this.id); },
@@ -96,7 +100,37 @@
         </div>
 
         <div class="window-body" @mousedown.stop @click.stop>
-            <div x-ref="moduleContainer" class="h-full overflow-auto"><div class="flex items-center justify-center h-full text-gray-400"><p>Memuat...</p></div></div>
+            <div x-show="loading" class="h-full overflow-auto p-4 space-y-3 animate-pulse">
+                <div class="flex items-center gap-3 mb-6">
+                    <div class="w-8 h-8 rounded-lg bg-gray-200 dark:bg-gray-700"></div>
+                    <div class="space-y-2 flex-1">
+                        <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
+                        <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/5"></div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-4 gap-3 mb-4">
+                    <div class="h-24 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                    <div class="h-24 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                    <div class="h-24 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                    <div class="h-24 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                </div>
+                <div class="flex gap-3 mb-4">
+                    <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-32"></div>
+                    <div class="h-8 bg-gray-200 dark:bg-gray-700 rounded w-24"></div>
+                </div>
+                <div class="space-y-2">
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4/6"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+                    <div class="h-20 bg-gray-200 dark:bg-gray-700 rounded-lg"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                    <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+                    <div class="h-10 bg-gray-200 dark:bg-gray-700 rounded-lg mt-4"></div>
+                </div>
+            </div>
+            <div x-ref="moduleContainer" class="h-full overflow-auto" x-show="!loading"></div>
         </div>
 
         <div x-show="!isMaximized"

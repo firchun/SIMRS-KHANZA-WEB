@@ -87,7 +87,7 @@
         if (!this.pasien?.no_rawat) return;
         this.pnLoading = true;
         try {
-            const res = await this.$store.api.get(this.penangananPrefix + this.pasien.no_rawat + '/penanganan');
+            const res = await this.$store.api.get(this.penangananPrefix + encodeURIComponent(this.pasien.no_rawat) + '/penanganan');
             this.penangananList = res || [];
         } catch (e) { console.error(e); }
         this.pnLoading = false;
@@ -135,8 +135,8 @@
         if (!this.pnForm.kd_jenis_prw || !this.pnForm.kd_dokter || !this.pnForm.nip) return;
         this.pnLoading = true;
         try {
-            await this.$store.api.post(this.penangananPrefix + this.pasien.no_rawat + '/penanganan', this.pnForm);
-            this.$store.api.cacheBust(this.penangananPrefix + this.pasien.no_rawat + '/penanganan');
+            await this.$store.api.post(this.penangananPrefix + encodeURIComponent(this.pasien.no_rawat) + '/penanganan', this.pnForm);
+            this.$store.api.cacheBust(this.penangananPrefix + encodeURIComponent(this.pasien.no_rawat) + '/penanganan');
             this.resetPnForm();
             await this.loadPenanganan();
         } catch (e) { console.error(e); }
@@ -147,14 +147,14 @@
         if (!confirm('Hapus penanganan ini?')) return;
         this.pnLoading = true;
         try {
-            await this.$store.api.delete(this.penangananPrefix + this.pasien.no_rawat + '/penanganan', {
+            await this.$store.api.delete(this.penangananPrefix + encodeURIComponent(this.pasien.no_rawat) + '/penanganan', {
                 kd_jenis_prw: item.kd_jenis_prw,
                 kd_dokter: item.kd_dokter,
                 nip: item.nip,
                 tgl_perawatan: item.tgl_perawatan,
                 jam_rawat: item.jam_rawat,
             });
-            this.$store.api.cacheBust(this.penangananPrefix + this.pasien.no_rawat + '/penanganan');
+            this.$store.api.cacheBust(this.penangananPrefix + encodeURIComponent(this.pasien.no_rawat) + '/penanganan');
             await this.loadPenanganan();
         } catch (e) { console.error(e); }
         this.pnLoading = false;
@@ -166,12 +166,10 @@
     riwayatLoading: false,
 
     soapForm: { keluhan: '', pemeriksaan: '', penilaian: '', instruksi: '', evaluasi: '', tensi: '', suhu_tubuh: '', nadi: '', respirasi: '', spo2: '', gcs: '', kesadaran: '', tinggi: '', berat: '', lingkar_perut: '', alergi: '', nip: '' },
+    soapFormOpen: false,
     soapHistory: [],
     soapLoading: false,
     soapSaving: false,
-    showGrafik: false,
-    grafikLoading: false,
-    grafikData: [],
 
     setRiwayatTab(key) {
         this.riwayatTab = key;
@@ -226,7 +224,7 @@
         if (!this.pasien?.no_rawat) return;
         this.soapLoading = true;
         try {
-            const res = await this.$store.api.get(this.soapPrefix + 'soap-list/' + this.pasien.no_rawat);
+            const res = await this.$store.api.get(this.soapPrefix + 'soap-list/' + encodeURIComponent(this.pasien.no_rawat));
             this.soapHistory = res || [];
         } catch (e) { console.error(e); }
         this.soapLoading = false;
@@ -236,9 +234,10 @@
         if (!this.pasien?.no_rawat) return;
         this.soapSaving = true;
         try {
-            await this.$store.api.post(this.soapPrefix + 'soap/' + this.pasien.no_rawat, this.soapForm);
-            this.$store.api.cacheBust(this.soapPrefix + 'soap-list/' + this.pasien.no_rawat);
+            await this.$store.api.post(this.soapPrefix + 'soap/' + encodeURIComponent(this.pasien.no_rawat), this.soapForm);
+            this.$store.api.cacheBust(this.soapPrefix + 'soap-list/' + encodeURIComponent(this.pasien.no_rawat));
             this.$store.api.cacheBust(this.soapPrefix + 'riwayat-soap/' + this.pasien.no_rkm_medis);
+            this.$store.api.cacheBust(this.soapPrefix + 'soap-grafik-rawat/' + encodeURIComponent(this.pasien.no_rawat));
             this.resetSoapForm();
             await this.loadSoapHistory();
         } catch (e) { console.error(e); }
@@ -254,34 +253,23 @@
         };
     },
 
-    async loadGrafik() {
-        if (!this.pasien?.no_rkm_medis) return;
-        this.grafikLoading = true;
-        try {
-            const res = await this.$store.api.get(this.soapPrefix + 'soap-grafik/' + this.pasien.no_rkm_medis);
-            this.grafikData = res || [];
-        } catch (e) { console.error(e); }
-        this.grafikLoading = false;
-    },
-
     openGrafik() {
-        this.showGrafik = true;
-        this.loadGrafik();
-    },
-
-    closeGrafik() {
-        this.showGrafik = false;
-        this.grafikData = [];
+        if (!this.pasien?.no_rawat) return;
+        this.$store.windows.open(
+            { key: 'grafik-vital-sign', label: 'Grafik Vital Sign - ' + (this.pasien.nm_pasien || ''), width: 700, height: 560 },
+            { ...this.pasien }
+        );
     },
 
     formatRupiah(n) { return 'Rp ' + Number(n || 0).toLocaleString('id-ID'); },
-}" class="flex flex-col h-full"
-    style="color:var(--text-primary)">
+}" class="flex flex-col h-full" style="color:var(--text-primary)">
 
     {{-- Patient Info Header --}}
     <template x-if="pasien">
-        <div class="flex items-center gap-3 px-3 py-2 border-b shrink-0" style="background-color:var(--bg-muted);border-color:var(--border)">
-            <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white bg-red-500" x-text="(pasien.nm_pasien || '?').charAt(0)"></div>
+        <div class="flex items-center gap-3 px-3 py-2 border-b shrink-0"
+            style="background-color:var(--bg-muted);border-color:var(--border)">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white bg-red-500"
+                x-text="(pasien.nm_pasien || '?').charAt(0)"></div>
             <div class="flex-1">
                 <div class="text-sm font-bold" x-text="pasien.nm_pasien || 'Pasien'"></div>
                 <div class="text-[11px]" style="color:var(--text-muted)">
@@ -295,7 +283,8 @@
                 </div>
             </div>
             <div class="flex items-center gap-2">
-                <span class="text-[11px] px-2 py-0.5 rounded font-medium bg-blue-100 text-blue-700" x-text="pasien.jenis_bayar || '-'"></span>
+                <span class="text-[11px] px-2 py-0.5 rounded font-medium bg-blue-100 text-blue-700"
+                    x-text="pasien.jenis_bayar || '-'"></span>
                 <span class="text-[11px] px-2 py-0.5 rounded font-medium" x-text="pasien.stts_daftar || ''"></span>
             </div>
         </div>
@@ -304,9 +293,11 @@
     {{-- Main Layout: Sidebar + Content --}}
     <div class="flex flex-1 overflow-hidden">
         {{-- Sidebar --}}
-        <div class="w-52 shrink-0 flex flex-col border-r overflow-hidden" style="border-color:var(--border);background-color:var(--bg-muted)">
+        <div class="w-52 shrink-0 flex flex-col border-r overflow-hidden"
+            style="border-color:var(--border);background-color:var(--bg-muted)">
             <div class="px-2 py-1.5 border-b shrink-0" style="border-color:var(--border)">
-                <input type="text" x-model="sidebarQ" placeholder="Cari menu..." class="form-input text-[11px] py-1 w-full">
+                <input type="text" x-model="sidebarQ" placeholder="Cari menu..."
+                    class="form-input text-[11px] py-1 w-full">
             </div>
             <div class="flex-1 overflow-y-auto min-h-0">
                 <template x-for="item in filteredSidebar" :key="item.key">
@@ -314,20 +305,23 @@
                         class="w-full text-left px-3 py-2 text-xs flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 border-b transition-colors"
                         :class="activeSidebar === item.key ? 'bg-blue-50 dark:bg-blue-900/20 font-semibold' : ''"
                         style="border-color:var(--border)">
-                        <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                            <path :d="item.icon"/>
+                        <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                            stroke-width="1.5">
+                            <path :d="item.icon" />
                         </svg>
                         <span x-text="item.label"></span>
                     </button>
                 </template>
-                <div x-show="!filteredSidebar.length" class="px-3 py-4 text-xs text-center" style="color:var(--text-muted)">Menu tidak ditemukan</div>
+                <div x-show="!filteredSidebar.length" class="px-3 py-4 text-xs text-center"
+                    style="color:var(--text-muted)">Menu tidak ditemukan</div>
             </div>
         </div>
 
         {{-- Main Content --}}
         <div class="flex-1 flex flex-col overflow-hidden">
             {{-- Tab Bar --}}
-            <div class="flex border-b shrink-0 overflow-x-auto" style="border-color:var(--border);background-color:var(--bg-muted)">
+            <div class="flex border-b shrink-0 overflow-x-auto"
+                style="border-color:var(--border);background-color:var(--bg-muted)">
                 <template x-for="tab in mainTabs" :key="tab.key">
                     <button @mousedown.stop @click="setTab(tab.key)"
                         class="px-4 py-2 text-xs font-medium whitespace-nowrap border-b-2 transition-colors"
@@ -350,10 +344,12 @@
                     </div>
 
                     {{-- Form Input --}}
-                    <div @mousedown.stop class="grid grid-cols-4 gap-2 p-3 rounded border shrink-0" style="border-color:var(--border);background-color:var(--bg-muted)">
+                    <div @mousedown.stop class="grid grid-cols-4 gap-2 p-3 rounded border shrink-0"
+                        style="border-color:var(--border);background-color:var(--bg-muted)">
                         <div class="relative" @mousedown.stop>
                             <label class="text-[10px] font-medium uppercase">Tindakan</label>
-                            <input type="text" x-model="pnSearch" @mousedown.stop @focus="pnShowDropdown = true" @input="pnShowDropdown = true" @click.outside="pnShowDropdown = false"
+                            <input type="text" x-model="pnSearch" @mousedown.stop @focus="pnShowDropdown = true"
+                                @input="pnShowDropdown = true" @click.outside="pnShowDropdown = false"
                                 placeholder="Cari tindakan..." class="form-input text-xs w-full mt-0.5 py-1">
                             <div x-show="pnShowDropdown && filteredJnsPerawatan.length" x-cloak
                                 class="absolute z-20 mt-0.5 w-full rounded shadow-lg border max-h-48 overflow-y-auto"
@@ -363,19 +359,23 @@
                                         class="w-full text-left px-2 py-1.5 text-xs hover:bg-black/10 dark:hover:bg-white/10 border-b"
                                         style="border-color:var(--border)">
                                         <span x-text="item.nm_perawatan"></span>
-                                        <span class="text-[10px] ml-1" style="color:var(--text-muted)" x-text="'(' + formatRupiah(Number(item.total_byrdrpr || item.total_byrdr || 0)) + ')'"></span>
+                                        <span class="text-[10px] ml-1" style="color:var(--text-muted)"
+                                            x-text="'(' + formatRupiah(Number(item.total_byrdrpr || item.total_byrdr || 0)) + ')'"></span>
                                     </button>
                                 </template>
                             </div>
                             <div x-show="pnShowDropdown && !filteredJnsPerawatan.length" x-cloak
-                                class="absolute z-20 mt-0.5 w-full rounded shadow-lg border p-2 text-xs" style="background-color:var(--bg-elevated);border-color:var(--border);color:var(--text-muted)">
+                                class="absolute z-20 mt-0.5 w-full rounded shadow-lg border p-2 text-xs"
+                                style="background-color:var(--bg-elevated);border-color:var(--border);color:var(--text-muted)">
                                 Tidak ditemukan
                             </div>
-                            <div x-show="pnForm.nm_perawatan" class="text-[10px] mt-0.5 truncate font-medium" x-text="pnForm.nm_perawatan"></div>
+                            <div x-show="pnForm.nm_perawatan" class="text-[10px] mt-0.5 truncate font-medium"
+                                x-text="pnForm.nm_perawatan"></div>
                         </div>
                         <div>
                             <label class="text-[10px] font-medium uppercase">Dokter</label>
-                            <select @mousedown.stop x-model="pnForm.kd_dokter" class="form-input text-xs w-full mt-0.5 py-1">
+                            <select @mousedown.stop x-model="pnForm.kd_dokter"
+                                class="form-input text-xs w-full mt-0.5 py-1">
                                 <option value="">Pilih Dokter</option>
                                 <template x-for="d in dokterList" :key="d.kd_dokter">
                                     <option :value="d.kd_dokter" x-text="d.nm_dokter"></option>
@@ -394,9 +394,11 @@
                         <div class="flex items-end gap-1" @mousedown.stop>
                             <div class="flex-1">
                                 <label class="text-[10px] font-medium uppercase">Biaya</label>
-                                <div class="text-xs font-semibold mt-0.5 py-1" x-text="formatRupiah(pnForm.biaya_rawat)"></div>
+                                <div class="text-xs font-semibold mt-0.5 py-1"
+                                    x-text="formatRupiah(pnForm.biaya_rawat)"></div>
                             </div>
-                            <button @mousedown.stop @click="simpanPenanganan" :disabled="pnLoading || !pnForm.kd_jenis_prw || !pnForm.kd_dokter || !pnForm.nip"
+                            <button @mousedown.stop @click="simpanPenanganan"
+                                :disabled="pnLoading || !pnForm.kd_jenis_prw || !pnForm.kd_dokter || !pnForm.nip"
                                 class="px-3 py-1.5 rounded text-xs font-medium transition-colors"
                                 style="background-color:var(--accent-blue);color:#fff"
                                 :style="(!pnForm.kd_jenis_prw || !pnForm.kd_dokter || !pnForm.nip) ? 'opacity:0.5' : ''"
@@ -405,10 +407,12 @@
                     </div>
 
                     {{-- Tabel Riwayat Penanganan --}}
-                    <div @mousedown.stop class="flex-1 overflow-y-auto min-h-0 rounded border" style="border-color:var(--border)">
+                    <div @mousedown.stop class="flex-1 overflow-y-auto min-h-0 rounded border"
+                        style="border-color:var(--border)">
                         <table class="w-full text-xs">
                             <thead>
-                                <tr class="sticky top-0 text-[10px] uppercase" style="background-color:var(--bg-muted);color:var(--text-muted)">
+                                <tr class="sticky top-0 text-[10px] uppercase"
+                                    style="background-color:var(--bg-muted);color:var(--text-muted)">
                                     <th class="text-left px-2 py-1.5 font-medium">Tanggal</th>
                                     <th class="text-left px-2 py-1.5 font-medium">Jam</th>
                                     <th class="text-left px-2 py-1.5 font-medium">Tindakan</th>
@@ -420,14 +424,17 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <template x-for="(item, i) in penangananList" :key="item.kd_jenis_prw + item.tgl_perawatan + item.jam_rawat">
-                                    <tr style="color:var(--text-primary);border-color:var(--border)" class="border-t" :class="i % 2 === 0 ? '' : 'bg-black/5 dark:bg-white/5'">
+                                <template x-for="(item, i) in penangananList"
+                                    :key="item.kd_jenis_prw + item.tgl_perawatan + item.jam_rawat">
+                                    <tr style="color:var(--text-primary);border-color:var(--border)" class="border-t"
+                                        :class="i % 2 === 0 ? '' : 'bg-black/5 dark:bg-white/5'">
                                         <td class="px-2 py-1.5" x-text="item.tgl_perawatan"></td>
                                         <td class="px-2 py-1.5" x-text="item.jam_rawat"></td>
                                         <td class="px-2 py-1.5" x-text="item.nm_perawatan || '-'"></td>
                                         <td class="px-2 py-1.5" x-text="item.nm_dokter || '-'"></td>
                                         <td class="px-2 py-1.5" x-text="item.nm_petugas || '-'"></td>
-                                        <td class="px-2 py-1.5 text-right font-medium" x-text="formatRupiah(item.biaya_rawat)"></td>
+                                        <td class="px-2 py-1.5 text-right font-medium"
+                                            x-text="formatRupiah(item.biaya_rawat)"></td>
                                         <td class="px-2 py-1.5 text-center">
                                             <span class="px-1.5 py-0.5 rounded text-[10px] font-medium"
                                                 :style="item.stts_bayar === 'Sudah' ? 'background-color:rgba(34,197,94,0.1);color:rgb(34,197,94)' : 'background-color:rgba(239,68,68,0.1);color:rgb(239,68,68)'"
@@ -437,18 +444,23 @@
                                             <button @mousedown.stop @click="hapusPenanganan(item)"
                                                 class="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
                                                 style="color:var(--accent-red)" title="Hapus">
-                                                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none"
+                                                    stroke="currentColor" stroke-width="2">
+                                                    <polyline points="3 6 5 6 21 6" />
+                                                    <path
+                                                        d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
                                                 </svg>
                                             </button>
                                         </td>
                                     </tr>
                                 </template>
                                 <tr x-show="!penangananList.length && !pnLoading">
-                                    <td colspan="8" class="text-center py-6 text-xs" style="color:var(--text-muted)">Belum ada penanganan</td>
+                                    <td colspan="8" class="text-center py-6 text-xs" style="color:var(--text-muted)">
+                                        Belum ada penanganan</td>
                                 </tr>
                                 <tr x-show="pnLoading">
-                                    <td colspan="8" class="text-center py-2 text-xs" style="color:var(--text-muted)">Loading...</td>
+                                    <td colspan="8" class="text-center py-2 text-xs" style="color:var(--text-muted)">
+                                        Loading...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -463,126 +475,187 @@
                             <span class="mx-1">|</span>Riwayat: <strong x-text="soapHistory.length + ' entry'"></strong>
                         </div>
                     </div>
+                    <button @mousedown.stop @click="openGrafik" class="px-3 py-1.5 rounded text-xs font-medium"
+                        style="background-color:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border)">
+                        <span class="flex items-center gap-1">
+                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                stroke-width="1.5">
+                                <path
+                                    d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                            </svg>
+                            Grafik Vital Sign
+                        </span>
+                    </button>
 
                     {{-- SOAP Form --}}
-                    <div @mousedown.stop class="p-3 rounded border shrink-0" style="border-color:var(--border);background-color:var(--bg-muted)">
-                        <div class="grid grid-cols-2 gap-3">
-                            <div @mousedown.stop>
-                                <label class="text-[10px] font-medium uppercase" style="color:#6366f1">S - Subjektif</label>
-                                <textarea x-model="soapForm.keluhan" @mousedown.stop
-                                    class="form-input text-xs w-full mt-0.5" rows="3" placeholder="Keluhan pasien..."></textarea>
-                            </div>
-                            <div @mousedown.stop>
-                                <label class="text-[10px] font-medium uppercase" style="color:#16a34a">O - Objektif</label>
-                                <textarea x-model="soapForm.pemeriksaan" @mousedown.stop
-                                    class="form-input text-xs w-full mt-0.5" rows="3" placeholder="Tanda vital, hasil pemeriksaan..."></textarea>
-                            </div>
-                            <div @mousedown.stop>
-                                <label class="text-[10px] font-medium uppercase" style="color:#dc2626">A - Assessment</label>
-                                <textarea x-model="soapForm.penilaian" @mousedown.stop
-                                    class="form-input text-xs w-full mt-0.5" rows="3" placeholder="Diagnosis / analisa..."></textarea>
-                            </div>
-                            <div @mousedown.stop>
-                                <label class="text-[10px] font-medium uppercase" style="color:#9333ea">P - Plan</label>
-                                <textarea x-model="soapForm.instruksi" @mousedown.stop
-                                    class="form-input text-xs w-full mt-0.5" rows="3" placeholder="Rencana tata laksana..."></textarea>
-                            </div>
-                        </div>
+                    <div @mousedown.stop class="rounded border shrink-0"
+                        style="border-color:var(--border);background-color:var(--bg-muted)">
+                        {{-- Toggle Header --}}
 
-                        {{-- Vitals --}}
-                        <div class="grid grid-cols-6 gap-2 mt-3">
-                            <div @mousedown.stop>
-                                <label class="text-[10px] font-medium uppercase">Tensi</label>
-                                <input type="text" x-model="soapForm.tensi" @mousedown.stop
-                                    class="form-input text-xs w-full mt-0.5 py-1" placeholder="120/80">
-                            </div>
-                            <div @mousedown.stop>
-                                <label class="text-[10px] font-medium uppercase">Suhu</label>
-                                <input type="text" x-model="soapForm.suhu_tubuh" @mousedown.stop
-                                    class="form-input text-xs w-full mt-0.5 py-1" placeholder="36.5">
-                            </div>
-                            <div @mousedown.stop>
-                                <label class="text-[10px] font-medium uppercase">Nadi</label>
-                                <input type="text" x-model="soapForm.nadi" @mousedown.stop
-                                    class="form-input text-xs w-full mt-0.5 py-1" placeholder="80">
-                            </div>
-                            <div @mousedown.stop>
-                                <label class="text-[10px] font-medium uppercase">Respirasi</label>
-                                <input type="text" x-model="soapForm.respirasi" @mousedown.stop
-                                    class="form-input text-xs w-full mt-0.5 py-1" placeholder="20">
-                            </div>
-                            <div @mousedown.stop>
-                                <label class="text-[10px] font-medium uppercase">SpO2</label>
-                                <input type="text" x-model="soapForm.spo2" @mousedown.stop
-                                    class="form-input text-xs w-full mt-0.5 py-1" placeholder="98">
-                            </div>
-                            <div @mousedown.stop>
-                                <label class="text-[10px] font-medium uppercase">GCS</label>
-                                <input type="text" x-model="soapForm.gcs" @mousedown.stop
-                                    class="form-input text-xs w-full mt-0.5 py-1" placeholder="15">
-                            </div>
-                            <div @mousedown.stop>
-                                <label class="text-[10px] font-medium uppercase">Kesadaran</label>
-                                <select x-model="soapForm.kesadaran" @mousedown.stop class="form-input text-xs w-full mt-0.5 py-1">
-                                    <option value="">Pilih</option>
-                                    <option value="Compos Mentis">Compos Mentis</option>
-                                    <option value="Apatis">Apatis</option>
-                                    <option value="Somnolen">Somnolen</option>
-                                    <option value="Sopor">Sopor</option>
-                                    <option value="Koma">Koma</option>
-                                    <option value="Delirium">Delirium</option>
-                                </select>
-                            </div>
-                            <div @mousedown.stop>
-                                <label class="text-[10px] font-medium uppercase">Tinggi (cm)</label>
-                                <input type="text" x-model="soapForm.tinggi" @mousedown.stop
-                                    class="form-input text-xs w-full mt-0.5 py-1" placeholder="165">
-                            </div>
-                            <div @mousedown.stop>
-                                <label class="text-[10px] font-medium uppercase">Berat (kg)</label>
-                                <input type="text" x-model="soapForm.berat" @mousedown.stop
-                                    class="form-input text-xs w-full mt-0.5 py-1" placeholder="65">
-                            </div>
-                            <div @mousedown.stop>
-                                <label class="text-[10px] font-medium uppercase">Lingkar Perut</label>
-                                <input type="text" x-model="soapForm.lingkar_perut" @mousedown.stop
-                                    class="form-input text-xs w-full mt-0.5 py-1" placeholder="80">
-                            </div>
-                            <div @mousedown.stop>
-                                <label class="text-[10px] font-medium uppercase">Alergi</label>
-                                <input type="text" x-model="soapForm.alergi" @mousedown.stop
-                                    class="form-input text-xs w-full mt-0.5 py-1" placeholder="Tidak ada">
-                            </div>
-                        </div>
+                        <button @click="soapFormOpen = !soapFormOpen"
+                            class="w-full flex items-center justify-between px-3 py-2 text-xs font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                            style="color:var(--text-primary)">
+                            <span class="flex items-center gap-2">
+                                <svg class="w-3.5 h-3.5 transition-transform" :class="soapFormOpen ? 'rotate-90' : ''"
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                    <path d="M9 5l7 7-7 7" />
+                                </svg>
+                                <span :class="soapFormOpen ? 'font-semibold' : ''" style="color:#16a34a">Form SOAP &
+                                    Vital Sign</span>
+                            </span>
+                            <span class="text-[10px]" style="color:var(--text-muted)"
+                                x-text="soapFormOpen ? 'Klik untuk tutup' : 'Klik untuk buka'"></span>
+                        </button>
 
-                        {{-- Actions --}}
-                        <div class="flex gap-2 mt-3" @mousedown.stop>
-                            <button @mousedown.stop @click="saveSoap" :disabled="soapSaving"
-                                class="px-4 py-1.5 rounded text-xs font-medium transition-colors"
-                                style="background-color:#16a34a;color:#fff"
-                                :style="soapSaving ? 'opacity:0.5' : ''"
-                                x-text="soapSaving ? 'Menyimpan...' : 'Simpan SOAP'"></button>
-                            <button @mousedown.stop @click="resetSoapForm"
-                                class="px-3 py-1.5 rounded text-xs font-medium"
-                                style="background-color:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border)">Reset</button>
-                            <button @mousedown.stop @click="openGrafik"
-                                class="px-3 py-1.5 rounded text-xs font-medium"
-                                style="background-color:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border)">
-                                <span class="flex items-center gap-1">
-                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                                        <path d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
-                                    </svg>
-                                    Grafik Vital Sign
-                                </span>
-                            </button>
+                        {{-- Collapsible Content --}}
+                        <div x-show="soapFormOpen">
+                            <div class="px-3 pb-3">
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase" style="color:#6366f1">S -
+                                            Subjektif</label>
+                                        <textarea x-model="soapForm.keluhan" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5" rows="3"
+                                            placeholder="Keluhan pasien..."></textarea>
+                                    </div>
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase" style="color:#16a34a">O -
+                                            Objektif</label>
+                                        <textarea x-model="soapForm.pemeriksaan" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5" rows="3"
+                                            placeholder="Tanda vital, hasil pemeriksaan..."></textarea>
+                                    </div>
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase" style="color:#dc2626">A -
+                                            Assessment</label>
+                                        <textarea x-model="soapForm.penilaian" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5" rows="3"
+                                            placeholder="Diagnosis / analisa..."></textarea>
+                                    </div>
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase" style="color:#9333ea">P -
+                                            Plan</label>
+                                        <textarea x-model="soapForm.instruksi" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5" rows="3"
+                                            placeholder="Rencana tata laksana..."></textarea>
+                                    </div>
+                                </div>
+
+                                {{-- Vitals --}}
+                                <div class="grid grid-cols-6 gap-2 mt-3">
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase">Tensi</label>
+                                        <input type="text" x-model="soapForm.tensi" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5 py-1" placeholder="120/80">
+                                    </div>
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase">Suhu</label>
+                                        <input type="text" x-model="soapForm.suhu_tubuh" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5 py-1" placeholder="36.5">
+                                    </div>
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase">Nadi</label>
+                                        <input type="text" x-model="soapForm.nadi" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5 py-1" placeholder="80">
+                                    </div>
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase">Respirasi</label>
+                                        <input type="text" x-model="soapForm.respirasi" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5 py-1" placeholder="20">
+                                    </div>
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase">SpO2</label>
+                                        <input type="text" x-model="soapForm.spo2" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5 py-1" placeholder="98">
+                                    </div>
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase">GCS</label>
+                                        <input type="text" x-model="soapForm.gcs" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5 py-1" placeholder="15">
+                                    </div>
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase">Kesadaran</label>
+                                        <select x-model="soapForm.kesadaran" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5 py-1">
+                                            <option value="">Pilih</option>
+                                            <option value="Compos Mentis">Compos Mentis</option>
+                                            <option value="Apatis">Apatis</option>
+                                            <option value="Somnolen">Somnolen</option>
+                                            <option value="Sopor">Sopor</option>
+                                            <option value="Koma">Koma</option>
+                                            <option value="Delirium">Delirium</option>
+                                        </select>
+                                    </div>
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase">Tinggi (cm)</label>
+                                        <input type="text" x-model="soapForm.tinggi" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5 py-1" placeholder="165">
+                                    </div>
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase">Berat (kg)</label>
+                                        <input type="text" x-model="soapForm.berat" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5 py-1" placeholder="65">
+                                    </div>
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase">Lingkar Perut</label>
+                                        <input type="text" x-model="soapForm.lingkar_perut" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5 py-1" placeholder="80">
+                                    </div>
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase">Alergi</label>
+                                        <input type="text" x-model="soapForm.alergi" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5 py-1" placeholder="Tidak ada">
+                                    </div>
+                                </div>
+
+                                {{-- Petugas --}}
+                                <div class="grid grid-cols-2 gap-2 mt-3">
+                                    <div @mousedown.stop>
+                                        <label class="text-[10px] font-medium uppercase">Petugas / Dokter</label>
+                                        <select x-model="soapForm.nip" @mousedown.stop
+                                            class="form-input text-xs w-full mt-0.5 py-1">
+                                            <option value="">Pilih petugas...</option>
+                                            <template x-for="p in petugasList" :key="p.nip">
+                                                <option :value="p.nip" x-text="p.nama + ' (' + p.nip + ')'"></option>
+                                            </template>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                {{-- Actions --}}
+                                <div class="flex gap-2 mt-3" @mousedown.stop>
+                                    <button @mousedown.stop @click="saveSoap" :disabled="soapSaving"
+                                        class="px-4 py-1.5 rounded text-xs font-medium transition-colors"
+                                        style="background-color:#16a34a;color:#fff"
+                                        :style="soapSaving ? 'opacity:0.5' : ''"
+                                        x-text="soapSaving ? 'Menyimpan...' : 'Simpan SOAP'"></button>
+                                    <button @mousedown.stop @click="resetSoapForm"
+                                        class="px-3 py-1.5 rounded text-xs font-medium"
+                                        style="background-color:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border)">Reset</button>
+                                    <button @mousedown.stop @click="openGrafik"
+                                        class="px-3 py-1.5 rounded text-xs font-medium"
+                                        style="background-color:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border)">
+                                        <span class="flex items-center gap-1">
+                                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                                                stroke-width="1.5">
+                                                <path
+                                                    d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                                            </svg>
+                                            Grafik Vital Sign
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     {{-- SOAP History Table --}}
-                    <div @mousedown.stop class="flex-1 overflow-y-auto min-h-0 rounded border" style="border-color:var(--border)">
+                    <div @mousedown.stop class="flex-1 overflow-y-auto min-h-0 rounded border"
+                        style="border-color:var(--border)">
                         <table class="w-full text-xs">
                             <thead>
-                                <tr class="sticky top-0 text-[10px] uppercase" style="background-color:var(--bg-muted);color:var(--text-muted)">
+                                <tr class="sticky top-0 text-[10px] uppercase"
+                                    style="background-color:var(--bg-muted);color:var(--text-muted)">
                                     <th class="text-left px-2 py-1.5 font-medium">Tanggal</th>
                                     <th class="text-left px-2 py-1.5 font-medium">Jam</th>
                                     <th class="text-left px-2 py-1.5 font-medium">S</th>
@@ -597,14 +670,20 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <template x-for="(item, i) in soapHistory" :key="item.no_rawat + item.tgl_perawatan + item.jam_rawat">
-                                    <tr style="color:var(--text-primary);border-color:var(--border)" class="border-t" :class="i % 2 === 0 ? '' : 'bg-black/5 dark:bg-white/5'">
+                                <template x-for="(item, i) in soapHistory"
+                                    :key="item.no_rawat + item.tgl_perawatan + item.jam_rawat">
+                                    <tr style="color:var(--text-primary);border-color:var(--border)" class="border-t"
+                                        :class="i % 2 === 0 ? '' : 'bg-black/5 dark:bg-white/5'">
                                         <td class="px-2 py-1.5" x-text="item.tgl_perawatan"></td>
                                         <td class="px-2 py-1.5" x-text="item.jam_rawat?.slice(0,5)"></td>
-                                        <td class="px-2 py-1.5 max-w-[120px] truncate" x-text="item.keluhan || '-'" :title="item.keluhan"></td>
-                                        <td class="px-2 py-1.5 max-w-[120px] truncate" x-text="item.pemeriksaan || '-'" :title="item.pemeriksaan"></td>
-                                        <td class="px-2 py-1.5 max-w-[120px] truncate" x-text="item.penilaian || '-'" :title="item.penilaian"></td>
-                                        <td class="px-2 py-1.5 max-w-[120px] truncate" x-text="item.instruksi || '-'" :title="item.instruksi"></td>
+                                        <td class="px-2 py-1.5 max-w-[120px] truncate" x-text="item.keluhan || '-'"
+                                            :title="item.keluhan"></td>
+                                        <td class="px-2 py-1.5 max-w-[120px] truncate" x-text="item.pemeriksaan || '-'"
+                                            :title="item.pemeriksaan"></td>
+                                        <td class="px-2 py-1.5 max-w-[120px] truncate" x-text="item.penilaian || '-'"
+                                            :title="item.penilaian"></td>
+                                        <td class="px-2 py-1.5 max-w-[120px] truncate" x-text="item.instruksi || '-'"
+                                            :title="item.instruksi"></td>
                                         <td class="px-2 py-1.5 text-center" x-text="item.tensi || '-'"></td>
                                         <td class="px-2 py-1.5 text-center" x-text="item.nadi || '-'"></td>
                                         <td class="px-2 py-1.5 text-center" x-text="item.suhu_tubuh || '-'"></td>
@@ -613,10 +692,12 @@
                                     </tr>
                                 </template>
                                 <tr x-show="!soapLoading && !soapHistory.length">
-                                    <td colspan="11" class="text-center py-6 text-xs" style="color:var(--text-muted)">Belum ada data pemeriksaan</td>
+                                    <td colspan="11" class="text-center py-6 text-xs" style="color:var(--text-muted)">
+                                        Belum ada data pemeriksaan</td>
                                 </tr>
                                 <tr x-show="soapLoading">
-                                    <td colspan="11" class="text-center py-2 text-xs" style="color:var(--text-muted)">Memuat...</td>
+                                    <td colspan="11" class="text-center py-2 text-xs" style="color:var(--text-muted)">
+                                        Memuat...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -628,27 +709,32 @@
                     <div class="max-w-xl space-y-3">
                         <div>
                             <label class="text-xs font-medium">Diagnosa Utama</label>
-                            <input type="text" class="form-input text-xs w-full mt-1" placeholder="Ketik atau cari diagnosa...">
+                            <input type="text" class="form-input text-xs w-full mt-1"
+                                placeholder="Ketik atau cari diagnosa...">
                         </div>
                         <div>
                             <label class="text-xs font-medium">Diagnosa Sekunder</label>
-                            <input type="text" class="form-input text-xs w-full mt-1" placeholder="Ketik atau cari diagnosa...">
+                            <input type="text" class="form-input text-xs w-full mt-1"
+                                placeholder="Ketik atau cari diagnosa...">
                         </div>
                         <div>
                             <label class="text-xs font-medium">Kode ICD 10</label>
                             <input type="text" class="form-input text-xs w-full mt-1" placeholder="Cari kode ICD 10...">
                         </div>
                     </div>
-                    <button class="btn btn-primary text-xs px-4 py-1.5" style="background-color:#dc2626">Simpan Diagnosa</button>
+                    <button class="btn btn-primary text-xs px-4 py-1.5" style="background-color:#dc2626">Simpan
+                        Diagnosa</button>
                 </div>
 
                 <div x-show="activeTab === 'catatan'" class="space-y-4">
                     <h3 class="text-sm font-bold" style="color:#9333ea">Catatan Dokter</h3>
                     <div class="max-w-xl">
                         <label class="text-xs font-medium">Catatan Perkembangan</label>
-                        <textarea class="form-input text-xs w-full mt-1" rows="6" placeholder="Catatan dokter..."></textarea>
+                        <textarea class="form-input text-xs w-full mt-1" rows="6"
+                            placeholder="Catatan dokter..."></textarea>
                     </div>
-                    <button class="btn btn-primary text-xs px-4 py-1.5" style="background-color:#9333ea">Simpan Catatan</button>
+                    <button class="btn btn-primary text-xs px-4 py-1.5" style="background-color:#9333ea">Simpan
+                        Catatan</button>
                 </div>
 
                 {{-- Sidebar: Riwayat Pasien --}}
@@ -680,7 +766,8 @@
                     <div x-show="riwayatTab === 'kunjungan'" class="flex-1 overflow-y-auto min-h-0" @mousedown.stop>
                         <table class="w-full text-xs">
                             <thead>
-                                <tr class="sticky top-0 text-[10px] uppercase" style="background-color:var(--bg-muted);color:var(--text-muted)">
+                                <tr class="sticky top-0 text-[10px] uppercase"
+                                    style="background-color:var(--bg-muted);color:var(--text-muted)">
                                     <th class="text-left px-2 py-1.5 font-medium">Tanggal</th>
                                     <th class="text-left px-2 py-1.5 font-medium">Poli</th>
                                     <th class="text-left px-2 py-1.5 font-medium">Dokter</th>
@@ -689,7 +776,8 @@
                             </thead>
                             <tbody>
                                 <template x-for="k in kunjunganList" :key="k.no_rawat">
-                                    <tr class="border-t" style="border-color:var(--border);color:var(--text-primary)" :class="kunjunganList.indexOf(k) % 2 === 0 ? '' : 'bg-black/5 dark:bg-white/5'">
+                                    <tr class="border-t" style="border-color:var(--border);color:var(--text-primary)"
+                                        :class="kunjunganList.indexOf(k) % 2 === 0 ? '' : 'bg-black/5 dark:bg-white/5'">
                                         <td class="px-2 py-1.5" x-text="k.tgl_registrasi"></td>
                                         <td class="px-2 py-1.5" x-text="k.nm_poli || '-'"></td>
                                         <td class="px-2 py-1.5" x-text="k.nm_dokter || '-'"></td>
@@ -701,18 +789,22 @@
                                     </tr>
                                 </template>
                                 <tr x-show="!riwayatLoading && !kunjunganList.length">
-                                    <td colspan="4" class="text-center py-6 text-xs" style="color:var(--text-muted)">Belum ada kunjungan</td>
+                                    <td colspan="4" class="text-center py-6 text-xs" style="color:var(--text-muted)">
+                                        Belum ada kunjungan</td>
                                 </tr>
                                 <tr x-show="riwayatLoading">
-                                    <td colspan="4" class="text-center py-2 text-xs" style="color:var(--text-muted)">Memuat...</td>
+                                    <td colspan="4" class="text-center py-2 text-xs" style="color:var(--text-muted)">
+                                        Memuat...</td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
                     {{-- Tab: SOAP / CPPT --}}
-                    <div x-show="riwayatTab === 'soap'" class="flex-1 overflow-y-auto min-h-0 space-y-2" @mousedown.stop>
+                    <div x-show="riwayatTab === 'soap'" class="flex-1 overflow-y-auto min-h-0 space-y-2"
+                        @mousedown.stop>
                         <template x-for="s in soapList" :key="s.no_rawat + s.tgl_perawatan + s.jam_rawat">
-                            <div class="p-2 rounded border text-xs" style="border-color:var(--border);background-color:var(--bg-muted)">
+                            <div class="p-2 rounded border text-xs"
+                                style="border-color:var(--border);background-color:var(--bg-muted)">
                                 <div class="flex items-center gap-2 text-[10px] mb-1" style="color:var(--text-muted)">
                                     <span x-text="s.tgl_perawatan"></span>
                                     <span x-text="s.jam_rawat"></span>
@@ -736,76 +828,30 @@
                                         <span x-text="s.instruksi"></span>
                                     </div>
                                 </div>
-                                <div x-show="s.tensi || s.suhu_tubuh || s.nadi" class="mt-1 text-[10px]" style="color:var(--text-muted)">
+                                <div x-show="s.tensi || s.suhu_tubuh || s.nadi" class="mt-1 text-[10px]"
+                                    style="color:var(--text-muted)">
                                     <span x-show="s.tensi" x-text="'TD: ' + s.tensi"></span>
-                                    <span x-show="s.suhu_tubuh" class="ml-2" x-text="'S: ' + s.suhu_tubuh + '°C'"></span>
+                                    <span x-show="s.suhu_tubuh" class="ml-2"
+                                        x-text="'S: ' + s.suhu_tubuh + '°C'"></span>
                                     <span x-show="s.nadi" class="ml-2" x-text="'N: ' + s.nadi"></span>
                                     <span x-show="s.respirasi" class="ml-2" x-text="'RR: ' + s.respirasi"></span>
                                     <span x-show="s.spo2" class="ml-2" x-text="'SpO2: ' + s.spo2 + '%'"></span>
                                 </div>
                             </div>
                         </template>
-                        <div x-show="!riwayatLoading && !soapList.length" class="text-center py-6 text-xs" style="color:var(--text-muted)">Belum ada data SOAP/CPPT</div>
-                        <div x-show="riwayatLoading" class="text-center py-2 text-xs" style="color:var(--text-muted)">Memuat...</div>
+                        <div x-show="!riwayatLoading && !soapList.length" class="text-center py-6 text-xs"
+                            style="color:var(--text-muted)">Belum ada data SOAP/CPPT</div>
+                        <div x-show="riwayatLoading" class="text-center py-2 text-xs" style="color:var(--text-muted)">
+                            Memuat...</div>
                     </div>
                 </div>
 
                 {{-- Sidebar placeholder for other menus --}}
-                <div x-show="activeSidebar && activeSidebar !== 'riwayat' && activeTab === null" class="flex items-center justify-center h-48 text-xs" style="color:var(--text-muted)">
-                    <p>Konten <strong x-text="sidebarItems.find(i => i.key === activeSidebar)?.label || activeSidebar"></strong> akan ditampilkan di sini</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- Grafik Vital Sign Modal --}}
-    <div x-show="showGrafik" x-cloak
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div @mousedown.stop class="w-[700px] max-h-[80vh] flex flex-col rounded-lg shadow-2xl" style="background-color:var(--bg-elevated)">
-            <div class="flex items-center justify-between px-4 py-2 border-b shrink-0" style="border-color:var(--border)">
-                <h3 class="text-sm font-bold" style="color:#16a34a">Grafik Vital Sign</h3>
-                <button @mousedown.stop @click="closeGrafik" class="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10">
-                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M6 18L18 6M6 6l12 12"/>
-                    </svg>
-                </button>
-            </div>
-            <div class="flex-1 overflow-y-auto min-h-0 p-4">
-                <div x-show="grafikLoading" class="text-center py-6 text-xs" style="color:var(--text-muted)">Memuat data grafik...</div>
-                <div x-show="!grafikLoading && !grafikData.length" class="text-center py-6 text-xs" style="color:var(--text-muted)">Belum ada data vital sign</div>
-                <div x-show="!grafikLoading && grafikData.length">
-                    <table class="w-full text-xs">
-                        <thead>
-                            <tr class="text-[10px] uppercase" style="color:var(--text-muted)">
-                                <th class="text-left px-2 py-1 font-medium">Tanggal</th>
-                                <th class="text-center px-2 py-1 font-medium">Tensi</th>
-                                <th class="text-center px-2 py-1 font-medium">Nadi</th>
-                                <th class="text-center px-2 py-1 font-medium">Suhu</th>
-                                <th class="text-center px-2 py-1 font-medium">RR</th>
-                                <th class="text-center px-2 py-1 font-medium">SpO2</th>
-                                <th class="text-center px-2 py-1 font-medium">GCS</th>
-                                <th class="text-center px-2 py-1 font-medium">Kesadaran</th>
-                                <th class="text-center px-2 py-1 font-medium">TB</th>
-                                <th class="text-center px-2 py-1 font-medium">BB</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <template x-for="g in grafikData" :key="g.tgl_perawatan + g.jam_rawat">
-                                <tr class="border-t" style="border-color:var(--border);color:var(--text-primary)">
-                                    <td class="px-2 py-1" x-text="g.tgl_perawatan + ' ' + (g.jam_rawat?.slice(0,5) || '')"></td>
-                                    <td class="px-2 py-1 text-center font-medium" x-text="g.tensi || '-'"></td>
-                                    <td class="px-2 py-1 text-center" x-text="g.nadi || '-'"></td>
-                                    <td class="px-2 py-1 text-center" x-text="g.suhu_tubuh || '-'"></td>
-                                    <td class="px-2 py-1 text-center" x-text="g.respirasi || '-'"></td>
-                                    <td class="px-2 py-1 text-center" x-text="g.spo2 || '-'"></td>
-                                    <td class="px-2 py-1 text-center" x-text="g.gcs || '-'"></td>
-                                    <td class="px-2 py-1 text-center" x-text="g.kesadaran || '-'"></td>
-                                    <td class="px-2 py-1 text-center" x-text="g.tinggi || '-'"></td>
-                                    <td class="px-2 py-1 text-center" x-text="g.berat || '-'"></td>
-                                </tr>
-                            </template>
-                        </tbody>
-                    </table>
+                <div x-show="activeSidebar && activeSidebar !== 'riwayat' && activeTab === null"
+                    class="flex items-center justify-center h-48 text-xs" style="color:var(--text-muted)">
+                    <p>Konten <strong
+                            x-text="sidebarItems.find(i => i.key === activeSidebar)?.label || activeSidebar"></strong>
+                        akan ditampilkan di sini</p>
                 </div>
             </div>
         </div>

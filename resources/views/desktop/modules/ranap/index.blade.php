@@ -123,6 +123,10 @@
         this.loadKamarList();
         this.showPindahKamar = true;
         this.showPulangkan = false;
+        this.showWaktuMasuk = false;
+        this.showWaktuKeluar = false;
+        this.showRiwayatKamar = false;
+        this.showDpjp = false;
     },
 
     onPindahKamarChange() {
@@ -161,6 +165,10 @@
         this.pulangForm = { tgl_keluar: new Date().toISOString().slice(0,10), jam_keluar: new Date().toTimeString().slice(0,5), stts_pulang: 'Sehat', diagnosa_akhir: '' };
         this.showPulangkan = true;
         this.showPindahKamar = false;
+        this.showWaktuMasuk = false;
+        this.showWaktuKeluar = false;
+        this.showRiwayatKamar = false;
+        this.showDpjp = false;
     },
 
     async submitPulangkan() {
@@ -188,12 +196,68 @@
     waktuMasukForm: { tgl_masuk: '', jam_masuk: '' },
     waktuKeluarForm: { tgl_keluar: '', jam_keluar: '' },
 
+    showDpjp: false,
+    dpjpList: [],
+    dpjpDoctors: [],
+    dpjpNewKdDokter: '',
+
+    async openDpjp() {
+        const p = this.selectedPatient;
+        if (!p) return;
+        this.showDpjp = true;
+        this.showPindahKamar = false;
+        this.showPulangkan = false;
+        this.showWaktuMasuk = false;
+        this.showWaktuKeluar = false;
+        this.showRiwayatKamar = false;
+        await Promise.all([this.loadDpjp(), this.loadDpjpDoctors()]);
+    },
+
+    async loadDpjp() {
+        const p = this.selectedPatient;
+        if (!p) return;
+        try { this.dpjpList = await this.$store.api.get('/ranap/dpjp/' + p.no_rawat) || []; } catch {}
+    },
+
+    async loadDpjpDoctors() {
+        try { this.dpjpDoctors = await this.$store.api.get('/ranap/dpjp-doctors') || []; } catch {}
+    },
+
+    async addDpjp() {
+        const p = this.selectedPatient;
+        if (!p || !this.dpjpNewKdDokter) return;
+        this.loading = true; this.err = '';
+        try {
+            await this.$store.api.post('/ranap/dpjp', { no_rawat: p.no_rawat, kd_dokter: this.dpjpNewKdDokter });
+            this.dpjpNewKdDokter = '';
+            await this.loadDpjp();
+        } catch (e) { this.err = e.message || 'Gagal tambah DPJP'; }
+        this.loading = false;
+        setTimeout(() => { this.err = ''; }, 3000);
+    },
+
+    async deleteDpjp(kd_dokter) {
+        const p = this.selectedPatient;
+        if (!p) return;
+        this.loading = true;
+        try {
+            await this.$store.api.delete('/ranap/dpjp/' + p.no_rawat + '/' + kd_dokter);
+            await this.loadDpjp();
+        } catch (e) { this.err = e.message || 'Gagal hapus DPJP'; }
+        this.loading = false;
+        setTimeout(() => { this.err = ''; }, 3000);
+    },
+
     openWaktuMasuk() {
         const p = this.selectedPatient;
         if (!p) return;
         this.waktuMasukForm = { tgl_masuk: p.tgl_masuk || new Date().toISOString().slice(0,10), jam_masuk: p.jam_masuk || new Date().toTimeString().slice(0,5) };
         this.showWaktuMasuk = true;
         this.showWaktuKeluar = false;
+        this.showPindahKamar = false;
+        this.showPulangkan = false;
+        this.showRiwayatKamar = false;
+        this.showDpjp = false;
     },
 
     async submitWaktuMasuk() {
@@ -216,6 +280,10 @@
         this.waktuKeluarForm = { tgl_keluar: p.tgl_keluar || new Date().toISOString().slice(0,10), jam_keluar: p.jam_keluar || new Date().toTimeString().slice(0,5) };
         this.showWaktuKeluar = true;
         this.showWaktuMasuk = false;
+        this.showPindahKamar = false;
+        this.showPulangkan = false;
+        this.showRiwayatKamar = false;
+        this.showDpjp = false;
     },
 
     async submitWaktuKeluar() {
@@ -264,6 +332,7 @@
         this.showPulangkan = false;
         this.showWaktuMasuk = false;
         this.showWaktuKeluar = false;
+        this.showDpjp = false;
     },
 } " @click.away="closeContext" @keydown.escape="closeContext" class="flex flex-col h-full overflow-hidden"
     style="color:var(--text-primary);font-size:13px">
@@ -275,12 +344,20 @@
         <template x-if="selectedPatient">
             <div class="flex items-center gap-1.5">
                 <span class="w-px h-4" style="background-color:var(--border)"></span>
-                <button @mousedown.stop @click="openPindahKamar" class="btn btn-warning text-[11px] px-1.5 py-0.5">Pindah Kamar</button>
-                <button @mousedown.stop @click="openPulangkan" class="btn btn-primary text-[11px] px-1.5 py-0.5" style="background-color:#3B82F6">Pulangkan</button>
-                <button @mousedown.stop @click="hapusRanap" class="btn btn-danger text-[11px] px-1.5 py-0.5">Hapus</button>
-                <button @mousedown.stop @click="openWaktuMasuk" class="btn btn-secondary text-[11px] px-1.5 py-0.5">Waktu Masuk</button>
-                <button @mousedown.stop @click="openWaktuKeluar" class="btn btn-secondary text-[11px] px-1.5 py-0.5">Waktu Keluar</button>
-                <button @mousedown.stop @click="openRiwayatKamar" class="btn btn-secondary text-[11px] px-1.5 py-0.5">Riwayat Kamar</button>
+                <button @mousedown.stop @click="openPindahKamar"
+                    class="btn btn-warning text-[11px] px-1.5 py-0.5">Pindah Kamar</button>
+                <button @mousedown.stop @click="openPulangkan" class="btn btn-primary text-[11px] px-1.5 py-0.5"
+                    style="background-color:#3B82F6">Pulangkan</button>
+                <button @mousedown.stop @click="hapusRanap"
+                    class="btn btn-danger text-[11px] px-1.5 py-0.5">Hapus</button>
+                <button @mousedown.stop @click="openDpjp"
+                    class="btn px-2 border border-gray-200 text-[11px] px-1.5 py-0.5">Input DPJP</button>
+                <button @mousedown.stop @click="openWaktuMasuk"
+                    class="btn px-2 border border-gray-200 text-[11px] px-1.5 py-0.5">Waktu Masuk</button>
+                <button @mousedown.stop @click="openWaktuKeluar"
+                    class="btn px-2 border border-gray-200 text-[11px] px-1.5 py-0.5">Waktu Keluar</button>
+                <button @mousedown.stop @click="openRiwayatKamar"
+                    class="btn px-2 border border-gray-200 text-[11px] px-1.5 py-0.5">Riwayat Kamar</button>
             </div>
         </template>
         <template x-if="msg">
@@ -298,36 +375,45 @@
             <div class="flex items-center gap-3 text-xs mb-2">
                 <span class="font-semibold">Pindah Kamar:</span>
                 <span x-text="selectedPatient.nm_pasien"></span>
-                <span class="text-[10px] font-mono" style="color:var(--text-muted)" x-text="'(' + selectedPatient.no_rawat + ') ' + selectedPatient.nm_bangsal + ' - ' + selectedPatient.kd_kamar"></span>
+                <span class="text-[10px] font-mono" style="color:var(--text-muted)"
+                    x-text="'(' + selectedPatient.no_rawat + ') ' + selectedPatient.nm_bangsal + ' - ' + selectedPatient.kd_kamar"></span>
             </div>
             <div class="grid grid-cols-4 gap-2">
                 <div>
                     <label class="text-[10px] font-medium" style="color:var(--text-muted)">Kamar Baru *</label>
-                    <select @mousedown.stop x-model="pindahForm.kd_kamar" @change="onPindahKamarChange" class="form-select text-xs w-full">
+                    <select @mousedown.stop x-model="pindahForm.kd_kamar" @change="onPindahKamarChange"
+                        class="form-select text-xs w-full">
                         <option value="">-- Pilih --</option>
                         <template x-for="k in kamarList" :key="k.kd_kamar">
-                            <option :value="k.kd_kamar" x-text="k.kd_kamar + ' - ' + (k.nm_bangsal || '-') + ' (' + k.kelas + ') ' + formatRupiah(k.trf_kamar)"></option>
+                            <option :value="k.kd_kamar"
+                                x-text="k.kd_kamar + ' - ' + (k.nm_bangsal || '-') + ' (' + k.kelas + ') ' + formatRupiah(k.trf_kamar)">
+                            </option>
                         </template>
                     </select>
                 </div>
                 <div>
                     <label class="text-[10px] font-medium" style="color:var(--text-muted)">Tarif Baru</label>
-                    <input @mousedown.stop type="text" :value="formatRupiah(pindahForm.trf_kamar)" class="form-input text-xs w-full" disabled>
+                    <input @mousedown.stop type="text" :value="formatRupiah(pindahForm.trf_kamar)"
+                        class="form-input text-xs w-full" disabled>
                 </div>
                 <div>
-                    <label class="text-[10px] font-medium" style="color:var(--text-muted)">Tgl Keluar (dari kamar lama)</label>
-                    <input @mousedown.stop type="date" x-model="pindahForm.tgl_keluar" class="form-input text-xs w-full">
+                    <label class="text-[10px] font-medium" style="color:var(--text-muted)">Tgl Keluar (dari kamar
+                        lama)</label>
+                    <input @mousedown.stop type="date" x-model="pindahForm.tgl_keluar"
+                        class="form-input text-xs w-full">
                 </div>
                 <div>
                     <label class="text-[10px] font-medium" style="color:var(--text-muted)">Jam Keluar</label>
-                    <input @mousedown.stop type="time" x-model="pindahForm.jam_keluar" class="form-input text-xs w-full">
+                    <input @mousedown.stop type="time" x-model="pindahForm.jam_keluar"
+                        class="form-input text-xs w-full">
                 </div>
             </div>
             <div class="flex gap-2 pt-1">
                 <button @mousedown.stop @click="submitPindahKamar" :disabled="loading"
                     class="btn bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] px-3 py-1 rounded font-medium"
                     x-text="loading ? 'Proses...' : 'Simpan Pindah Kamar'"></button>
-                <button @mousedown.stop @click="showPindahKamar = false" class="btn btn-secondary text-[11px] px-2 py-1">Batal</button>
+                <button @mousedown.stop @click="showPindahKamar = false"
+                    class="btn btn-secondary text-[11px] px-2 py-1">Batal</button>
             </div>
         </div>
     </template>
@@ -339,16 +425,19 @@
             <div class="flex items-center gap-3 text-xs mb-2">
                 <span class="font-semibold">Pulangkan Pasien:</span>
                 <span x-text="selectedPatient.nm_pasien"></span>
-                <span class="text-[10px] font-mono" style="color:var(--text-muted)" x-text="'(' + selectedPatient.no_rawat + ')'"></span>
+                <span class="text-[10px] font-mono" style="color:var(--text-muted)"
+                    x-text="'(' + selectedPatient.no_rawat + ')'"></span>
             </div>
             <div class="grid grid-cols-4 gap-2">
                 <div>
                     <label class="text-[10px] font-medium" style="color:var(--text-muted)">Tgl Keluar</label>
-                    <input @mousedown.stop type="date" x-model="pulangForm.tgl_keluar" class="form-input text-xs w-full">
+                    <input @mousedown.stop type="date" x-model="pulangForm.tgl_keluar"
+                        class="form-input text-xs w-full">
                 </div>
                 <div>
                     <label class="text-[10px] font-medium" style="color:var(--text-muted)">Jam Keluar</label>
-                    <input @mousedown.stop type="time" x-model="pulangForm.jam_keluar" class="form-input text-xs w-full">
+                    <input @mousedown.stop type="time" x-model="pulangForm.jam_keluar"
+                        class="form-input text-xs w-full">
                 </div>
                 <div>
                     <label class="text-[10px] font-medium" style="color:var(--text-muted)">Status Pulang *</label>
@@ -360,14 +449,16 @@
                 </div>
                 <div>
                     <label class="text-[10px] font-medium" style="color:var(--text-muted)">Diagnosa Akhir</label>
-                    <input @mousedown.stop type="text" x-model="pulangForm.diagnosa_akhir" class="form-input text-xs w-full" placeholder="Opsional">
+                    <input @mousedown.stop type="text" x-model="pulangForm.diagnosa_akhir"
+                        class="form-input text-xs w-full" placeholder="Opsional">
                 </div>
             </div>
             <div class="flex gap-2 pt-1">
                 <button @mousedown.stop @click="submitPulangkan" :disabled="loading"
                     class="btn bg-blue-600 hover:bg-blue-700 text-white text-[11px] px-3 py-1 rounded font-medium"
                     x-text="loading ? 'Proses...' : 'Pulangkan'"></button>
-                <button @mousedown.stop @click="showPulangkan = false" class="btn btn-secondary text-[11px] px-2 py-1">Batal</button>
+                <button @mousedown.stop @click="showPulangkan = false"
+                    class="btn btn-secondary text-[11px] px-2 py-1">Batal</button>
             </div>
         </div>
     </template>
@@ -379,23 +470,27 @@
             <div class="flex items-center gap-3 text-xs mb-2">
                 <span class="font-semibold">Ubah Waktu Masuk:</span>
                 <span x-text="selectedPatient.nm_pasien"></span>
-                <span class="text-[10px] font-mono" style="color:var(--text-muted)" x-text="'(' + selectedPatient.no_rawat + ')'"></span>
+                <span class="text-[10px] font-mono" style="color:var(--text-muted)"
+                    x-text="'(' + selectedPatient.no_rawat + ')'"></span>
             </div>
             <div class="grid grid-cols-2 gap-2">
                 <div>
                     <label class="text-[10px] font-medium" style="color:var(--text-muted)">Tanggal Masuk</label>
-                    <input @mousedown.stop type="date" x-model="waktuMasukForm.tgl_masuk" class="form-input text-xs w-full">
+                    <input @mousedown.stop type="date" x-model="waktuMasukForm.tgl_masuk"
+                        class="form-input text-xs w-full">
                 </div>
                 <div>
                     <label class="text-[10px] font-medium" style="color:var(--text-muted)">Jam Masuk</label>
-                    <input @mousedown.stop type="time" x-model="waktuMasukForm.jam_masuk" class="form-input text-xs w-full">
+                    <input @mousedown.stop type="time" x-model="waktuMasukForm.jam_masuk"
+                        class="form-input text-xs w-full">
                 </div>
             </div>
             <div class="flex gap-2 pt-1">
                 <button @mousedown.stop @click="submitWaktuMasuk" :disabled="loading"
                     class="btn bg-green-600 hover:bg-green-700 text-white text-[11px] px-3 py-1 rounded font-medium"
                     x-text="loading ? 'Proses...' : 'Simpan'"></button>
-                <button @mousedown.stop @click="showWaktuMasuk = false" class="btn btn-secondary text-[11px] px-2 py-1">Batal</button>
+                <button @mousedown.stop @click="showWaktuMasuk = false"
+                    class="btn btn-secondary text-[11px] px-2 py-1">Batal</button>
             </div>
         </div>
     </template>
@@ -407,28 +502,89 @@
             <div class="flex items-center gap-3 text-xs mb-2">
                 <span class="font-semibold">Ubah Waktu Keluar:</span>
                 <span x-text="selectedPatient.nm_pasien"></span>
-                <span class="text-[10px] font-mono" style="color:var(--text-muted)" x-text="'(' + selectedPatient.no_rawat + ')'"></span>
+                <span class="text-[10px] font-mono" style="color:var(--text-muted)"
+                    x-text="'(' + selectedPatient.no_rawat + ')'"></span>
             </div>
             <div class="grid grid-cols-2 gap-2">
                 <div>
                     <label class="text-[10px] font-medium" style="color:var(--text-muted)">Tanggal Keluar</label>
-                    <input @mousedown.stop type="date" x-model="waktuKeluarForm.tgl_keluar" class="form-input text-xs w-full">
+                    <input @mousedown.stop type="date" x-model="waktuKeluarForm.tgl_keluar"
+                        class="form-input text-xs w-full">
                 </div>
                 <div>
                     <label class="text-[10px] font-medium" style="color:var(--text-muted)">Jam Keluar</label>
-                    <input @mousedown.stop type="time" x-model="waktuKeluarForm.jam_keluar" class="form-input text-xs w-full">
+                    <input @mousedown.stop type="time" x-model="waktuKeluarForm.jam_keluar"
+                        class="form-input text-xs w-full">
                 </div>
             </div>
             <div class="flex gap-2 pt-1">
                 <button @mousedown.stop @click="submitWaktuKeluar" :disabled="loading"
                     class="btn bg-purple-600 hover:bg-purple-700 text-white text-[11px] px-3 py-1 rounded font-medium"
                     x-text="loading ? 'Proses...' : 'Simpan'"></button>
-                <button @mousedown.stop @click="showWaktuKeluar = false" class="btn btn-secondary text-[11px] px-2 py-1">Batal</button>
+                <button @mousedown.stop @click="showWaktuKeluar = false"
+                    class="btn btn-secondary text-[11px] px-2 py-1">Batal</button>
             </div>
         </div>
     </template>
 
     {{-- Riwayat Kamar --}}
+    {{-- Form DPJP --}}
+    <template x-if="showDpjp && selectedPatient">
+        <div class="border-b shrink-0 px-3 py-2 space-y-2"
+            style="border-color:var(--border);background-color:rgba(34,211,238,0.06)">
+            <div class="flex items-center justify-between text-xs mb-2">
+                <div class="flex items-center gap-3">
+                    <span class="font-semibold">DPJP:</span>
+                    <span x-text="selectedPatient.nm_pasien"></span>
+                    <span class="text-[10px] font-mono" style="color:var(--text-muted)"
+                        x-text="'(' + selectedPatient.no_rawat + ')'"></span>
+                </div>
+                <button @mousedown.stop @click="showDpjp = false"
+                    class="text-[16px] leading-none px-1 hover:text-red-500"
+                    style="color:var(--text-muted)">&times;</button>
+            </div>
+            <div class="flex items-center gap-2">
+                <select @mousedown.stop x-model="dpjpNewKdDokter" class="form-select text-xs w-64">
+                    <option value="">-- Pilih Dokter --</option>
+                    <template x-for="d in dpjpDoctors" :key="d.kd_dokter">
+                        <option :value="d.kd_dokter" x-text="d.nm_dokter + ' (' + d.kd_dokter + ')'"></option>
+                    </template>
+                </select>
+                <button @mousedown.stop @click="addDpjp" :disabled="loading || !dpjpNewKdDokter"
+                    class="btn bg-cyan-600 hover:bg-cyan-700 text-white text-[11px] px-3 py-1 rounded font-medium"
+                    x-text="loading ? 'Proses...' : 'Tambah'"></button>
+            </div>
+            <div class="overflow-x-auto rounded border max-h-40 overflow-y-auto" style="border-color:var(--border)">
+                <table class="table-default text-xs" x-show="dpjpList.length">
+                    <thead>
+                        <tr>
+                            <th class="p-1.5 text-left">Kode Dokter</th>
+                            <th class="p-1.5 text-left">Nama Dokter</th>
+                            <th class="p-1.5 text-center w-16">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="d in dpjpList" :key="d.kd_dokter">
+                            <tr>
+                                <td class="p-1.5 font-mono" x-text="d.kd_dokter"></td>
+                                <td class="p-1.5" x-text="d.nm_dokter || '-'"></td>
+                                <td class="p-1.5 text-center">
+                                    <button @mousedown.stop @click="deleteDpjp(d.kd_dokter)"
+                                        class="text-red-500 hover:text-red-700" title="Hapus">
+                                        <svg class="w-3.5 h-3.5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                        </svg>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+                <div x-show="!dpjpList.length" class="p-3 text-xs text-center" style="color:var(--text-muted)">Belum ada DPJP</div>
+            </div>
+        </div>
+    </template>
+
     <template x-if="showRiwayatKamar && selectedPatient">
         <div class="border-b shrink-0 px-3 py-2 space-y-2"
             style="border-color:var(--border);background-color:rgba(14,165,233,0.06)">
@@ -436,9 +592,12 @@
                 <div class="flex items-center gap-3">
                     <span class="font-semibold">Riwayat Kamar:</span>
                     <span x-text="selectedPatient.nm_pasien"></span>
-                    <span class="text-[10px] font-mono" style="color:var(--text-muted)" x-text="'(' + selectedPatient.no_rawat + ')'"></span>
+                    <span class="text-[10px] font-mono" style="color:var(--text-muted)"
+                        x-text="'(' + selectedPatient.no_rawat + ')'"></span>
                 </div>
-                <button @mousedown.stop @click="showRiwayatKamar = false" class="text-[16px] leading-none px-1 hover:text-red-500" style="color:var(--text-muted)">&times;</button>
+                <button @mousedown.stop @click="showRiwayatKamar = false"
+                    class="text-[16px] leading-none px-1 hover:text-red-500"
+                    style="color:var(--text-muted)">&times;</button>
             </div>
             <div class="overflow-x-auto rounded border" style="border-color:var(--border)">
                 <table class="table-default text-xs">
@@ -472,10 +631,12 @@
                             </tr>
                         </template>
                         <tr x-show="riwayatKamarLoading">
-                            <td colspan="8" class="text-center py-4 text-xs" style="color:var(--text-muted)">Memuat...</td>
+                            <td colspan="8" class="text-center py-4 text-xs" style="color:var(--text-muted)">Memuat...
+                            </td>
                         </tr>
                         <tr x-show="!riwayatKamarLoading && riwayatKamarList.length === 0">
-                            <td colspan="8" class="text-center py-4 text-xs" style="color:var(--text-muted)">Tidak ada riwayat</td>
+                            <td colspan="8" class="text-center py-4 text-xs" style="color:var(--text-muted)">Tidak ada
+                                riwayat</td>
                         </tr>
                     </tbody>
                 </table>
@@ -552,11 +713,13 @@
                         <td class="p-1 text-[10px]" x-text="r.kelas"></td>
                         <td class="p-1">
                             <div x-text="r.tgl_masuk"></div>
-                            <div class="text-[9px] font-mono" style="color:var(--text-muted)" x-text="r.jam_masuk || ''"></div>
+                            <div class="text-[9px] font-mono" style="color:var(--text-muted)"
+                                x-text="r.jam_masuk || ''"></div>
                         </td>
                         <td class="p-1">
                             <div x-text="r.tgl_keluar || '-'"></div>
-                            <div class="text-[9px] font-mono" style="color:var(--text-muted)" x-text="r.jam_keluar || ''"></div>
+                            <div class="text-[9px] font-mono" style="color:var(--text-muted)"
+                                x-text="r.jam_keluar || ''"></div>
                         </td>
                         <td class="p-1" x-text="r.lama + ' hr'"></td>
                         <td class="p-1" x-text="formatRupiah(r.ttl_biaya)"></td>

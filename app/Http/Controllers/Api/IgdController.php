@@ -295,31 +295,41 @@ class IgdController extends Controller
 
     public function dashboard()
     {
-        $today = now()->startOfDay();
-        $antrian = Registrasi::with(['pasien', 'igdTriage'])->where('jenis', 'IGD')->whereDate('created_at', $today)->orderBy('created_at')->get();
-        $triaged = $antrian->map(function ($r) {
-            $triage = $r->igdTriage->first();
-            return [
-                'id' => $r->id,
-                'registrasi_id' => $r->id,
-                'no_rm' => $r->pasien->no_rm ?? '-',
-                'nama_pasien' => $r->pasien->nama ?? '-',
-                'kategori' => $triage->triase ?? '-',
-                'keluhan_utama' => $triage->anamnesis ?? '-',
-                'created_at' => $r->tgl_registrasi,
-                'diagnosis_akhir' => null,
-                'status_selesai' => $r->status === 'selesai',
-                'tindakan' => [],
-                'diagnosis' => [],
-            ];
-        });
+        $today = date('Y-m-d');
+        $list = DB::table('reg_periksa')
+            ->leftJoin('pasien', 'reg_periksa.no_rkm_medis', '=', 'pasien.no_rkm_medis')
+            ->leftJoin('dokter', 'reg_periksa.kd_dokter', '=', 'dokter.kd_dokter')
+            ->where('reg_periksa.kd_poli', 'IGDK')
+            ->where('reg_periksa.tgl_registrasi', $today)
+            ->select(
+                'reg_periksa.no_rawat',
+                'reg_periksa.no_reg',
+                'reg_periksa.tgl_registrasi',
+                'reg_periksa.jam_reg',
+                'reg_periksa.no_rkm_medis',
+                'pasien.nm_pasien',
+                'pasien.jk',
+                'dokter.nm_dokter',
+                'reg_periksa.stts',
+            )
+            ->orderBy('reg_periksa.jam_reg')
+            ->get();
+
+        $counts = DB::table('reg_periksa')
+            ->where('kd_poli', 'IGDK')
+            ->where('tgl_registrasi', $today)
+            ->selectRaw("COUNT(*) as total")
+            ->selectRaw("SUM(CASE WHEN stts='Belum' THEN 1 ELSE 0 END) as menunggu")
+            ->selectRaw("SUM(CASE WHEN stts='Sudah' THEN 1 ELSE 0 END) as diperiksa")
+            ->selectRaw("SUM(CASE WHEN stts IN ('Dirujuk','Dirawat','Meninggal','Pulang Paksa') THEN 1 ELSE 0 END) as selesai")
+            ->first();
+
         return response()->json([
-            'total_hari_ini' => $antrian->count(),
-            'menunggu' => $antrian->where('status', 'antri')->count(),
-            'diperiksa' => $antrian->where('status', 'diperiksa')->count(),
-            'selesai' => $antrian->where('status', 'selesai')->count(),
-            'antrian' => $antrian,
-            'triaged' => $triaged,
+            'total_hari_ini' => (int) ($counts->total ?? 0),
+            'menunggu' => (int) ($counts->menunggu ?? 0),
+            'diperiksa' => (int) ($counts->diperiksa ?? 0),
+            'selesai' => (int) ($counts->selesai ?? 0),
+            'list' => $list,
         ]);
     }
 }

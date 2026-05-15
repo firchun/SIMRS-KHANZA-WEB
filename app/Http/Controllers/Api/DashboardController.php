@@ -2,43 +2,94 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\{Registrasi, IgdTriage, RalanKunjungan, RanapAdmisi};
+use App\Models\Pasien;
+use App\Models\Registrasi;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
     public function stats()
     {
-        $today = now()->startOfDay();
+        $today = date('Y-m-d');
 
-        $igd = Registrasi::where('jenis', 'IGD')->whereDate('created_at', $today);
-        $ralan = Registrasi::where('jenis', 'RALAN')->whereDate('created_at', $today);
-        $ranap = RanapAdmisi::whereNull('tgl_keluar');
+        // IGD: reg_periksa with kd_poli = 'IGDK'
+        $igd = DB::table('reg_periksa')->where('kd_poli', 'IGDK')->where('tgl_registrasi', $today);
+        $igdCounts = (clone $igd)
+            ->selectRaw("COUNT(*) as total")
+            ->selectRaw("SUM(CASE WHEN stts='Belum' THEN 1 ELSE 0 END) as menunggu")
+            ->selectRaw("SUM(CASE WHEN stts='Sudah' THEN 1 ELSE 0 END) as diperiksa")
+            ->selectRaw("SUM(CASE WHEN stts IN ('Dirujuk','Dirawat','Meninggal','Pulang Paksa') THEN 1 ELSE 0 END) as selesai")
+            ->first();
+
+        // Ralan: reg_periksa with kd_poli != 'IGDK' (excluding Ranap)
+        $ralan = DB::table('reg_periksa')->where('kd_poli', '!=', 'IGDK')->where('tgl_registrasi', $today);
+        $ralanCounts = (clone $ralan)
+            ->selectRaw("COUNT(*) as total")
+            ->selectRaw("SUM(CASE WHEN stts='Belum' THEN 1 ELSE 0 END) as menunggu")
+            ->selectRaw("SUM(CASE WHEN stts='Sudah' THEN 1 ELSE 0 END) as diperiksa")
+            ->selectRaw("SUM(CASE WHEN stts IN ('Dirujuk','Dirawat','Meninggal','Pulang Paksa') THEN 1 ELSE 0 END) as selesai")
+            ->first();
+
+        // Ranap: kamar stats + BOR
+        $ranapTotal = DB::table('kamar_inap')->count();
+        $ranapRawatInap = DB::table('kamar_inap')->where('stts_pulang', '-')->count();
+        $ranapMasuk = DB::table('kamar_inap')->where('tgl_masuk', $today)->count();
+        $ranapKeluar = DB::table('kamar_inap')->where('tgl_keluar', $today)->count();
+
+        // Kamar / Bed occupancy
+        $totalBed = DB::table('kamar')->where('statusdata', '1')->count();
+        $occupiedBed = DB::table('kamar')->where('statusdata', '1')->where('status', 'ISI')->count();
+        $availableBed = $totalBed - $occupiedBed;
+        $bor = $totalBed > 0 ? round(($occupiedBed / $totalBed) * 100, 1) : 0;
+
+        // Per-class room breakdown
+        $kelasStats = DB::table('kamar')
+            ->select('kelas')
+            ->selectRaw("COUNT(*) as total")
+            ->selectRaw("SUM(CASE WHEN status = 'ISI' THEN 1 ELSE 0 END) as terisi")
+            ->where('statusdata', '1')
+            ->groupBy('kelas')
+            ->orderBy('kelas')
+            ->get();
+
+        // Available rooms per class for pie chart
+        $kelasPie = $kelasStats->map(fn($k) => [
+            'kelas' => $k->kelas,
+            'total' => (int) $k->total,
+            'terisi' => (int) $k->terisi,
+            'tersedia' => (int) $k->total - (int) $k->terisi,
+        ]);
 
         return response()->json([
             'hari_ini' => [
-                'total' => Registrasi::whereDate('created_at', $today)->count(),
-                'igd' => $igd->count(),
-                'ralan' => $ralan->count(),
-                'ranap' => $ranap->count(),
+                'total' => ($igdCounts->total ?? 0) + ($ralanCounts->total ?? 0),
+                'igd' => $igdCounts->total ?? 0,
+                'ralan' => $ralanCounts->total ?? 0,
+                'ranap' => $ranapRawatInap,
             ],
             'igd' => [
-                'total' => $igd->count(),
-                'menunggu' => (clone $igd)->where('status', 'antri')->count(),
-                'diperiksa' => (clone $igd)->where('status', 'diperiksa')->count(),
-                'selesai' => (clone $igd)->where('status', 'selesai')->count(),
+                'total' => $igdCounts->total ?? 0,
+                'menunggu' => $igdCounts->menunggu ?? 0,
+                'diperiksa' => $igdCounts->diperiksa ?? 0,
+                'selesai' => $igdCounts->selesai ?? 0,
             ],
             'ralan' => [
-                'total' => $ralan->count(),
-                'menunggu' => (clone $ralan)->where('status', 'antri')->count(),
-                'diperiksa' => (clone $ralan)->where('status', 'diperiksa')->count(),
-                'selesai' => (clone $ralan)->where('status', 'selesai')->count(),
+                'total' => $ralanCounts->total ?? 0,
+                'menunggu' => $ralanCounts->menunggu ?? 0,
+                'diperiksa' => $ralanCounts->diperiksa ?? 0,
+                'selesai' => $ralanCounts->selesai ?? 0,
             ],
             'ranap' => [
-                'total' => RanapAdmisi::count(),
-                'rawat_inap' => $ranap->count(),
-                'hari_ini_masuk' => RanapAdmisi::whereDate('tgl_masuk', today())->count(),
-                'hari_ini_keluar' => RanapAdmisi::whereDate('tgl_keluar', today())->count(),
+                'total' => $ranapTotal,
+                'rawat_inap' => $ranapRawatInap,
+                'hari_ini_masuk' => $ranapMasuk,
+                'hari_ini_keluar' => $ranapKeluar,
+                'bor' => $bor,
+                'total_bed' => $totalBed,
+                'occupied_bed' => $occupiedBed,
+                'available_bed' => $availableBed,
+                'kelas' => $kelasPie,
             ],
         ]);
     }
@@ -50,16 +101,22 @@ class DashboardController extends Controller
             return response()->json([]);
         }
 
-        $patients = \App\Models\Pasien::where(function($q) use ($s) {
-            $q->where('nama', 'like', "%{$s}%")
-              ->orWhere('no_rm', 'like', "%{$s}%")
-              ->orWhere('nik', 'like', "%{$s}%");
-        })->limit(15)->get();
+        $patients = DB::table('pasien')
+            ->where(function ($q) use ($s) {
+                $q->where('nm_pasien', 'like', "%{$s}%")
+                  ->orWhere('no_rkm_medis', 'like', "%{$s}%")
+                  ->orWhere('no_ktp', 'like', "%{$s}%");
+            })
+            ->limit(15)
+            ->get();
 
         $results = $patients->map(function ($p) {
-            $latestReg = Registrasi::with(['igdTriage', 'ralanKunjungan', 'ranapAdmisi'])
-                ->where('pasien_id', $p->id)
-                ->latest()
+            $noRkm = $p->no_rkm_medis;
+
+            $latestReg = DB::table('reg_periksa')
+                ->where('no_rkm_medis', $noRkm)
+                ->orderByDesc('tgl_registrasi')
+                ->orderByDesc('jam_reg')
                 ->first();
 
             $location = null;
@@ -67,36 +124,46 @@ class DashboardController extends Controller
             $data = [];
 
             if ($latestReg) {
-                if ($latestReg->jenis === 'IGD' && $latestReg->status !== 'selesai') {
+                $isIgd = $latestReg->kd_poli === 'IGDK';
+                $isRanap = DB::table('kamar_inap')
+                    ->where('no_rawat', $latestReg->no_rawat)
+                    ->where('stts_pulang', '-')
+                    ->exists();
+
+                if ($isIgd && $latestReg->stts === 'Belum') {
                     $location = 'IGD';
                     $moduleKey = 'igd-treatment';
-                    $data = ['registrasi_id' => $latestReg->id];
-                } elseif ($latestReg->jenis === 'RALAN' && $latestReg->status !== 'selesai') {
-                    $location = 'Ralan - ' . ($latestReg->poli ?? 'Umum');
-                    $moduleKey = 'ralan-queue';
-                    $data = ['kunjungan' => $latestReg->id];
-                } elseif ($latestReg->jenis === 'RANAP' && $latestReg->status === 'rawat_inap') {
-                    $admisi = $latestReg->ranapAdmisi->first();
-                    $location = 'Ranap - ' . ($admisi->bangsal ?? 'Kamar ' . ($admisi->no_kamar ?? '-'));
+                    $data = ['no_rawat' => $latestReg->no_rawat];
+                } elseif ($isRanap) {
+                    $kamar = DB::table('kamar_inap')
+                        ->where('no_rawat', $latestReg->no_rawat)
+                        ->where('stts_pulang', '-')
+                        ->leftJoin('bangsal', 'kamar_inap.kd_kamar', '=', 'bangsal.kd_bangsal')
+                        ->select('bangsal.nm_bangsal')
+                        ->first();
+                    $location = 'Ranap - ' . ($kamar->nm_bangsal ?? '-');
                     $moduleKey = 'ranap-care';
-                    $data = ['admisi_id' => $admisi->id ?? null];
+                    $data = ['no_rawat' => $latestReg->no_rawat];
+                } elseif (!$isIgd && !$isRanap && $latestReg->stts === 'Belum') {
+                    $poli = DB::table('poliklinik')->where('kd_poli', $latestReg->kd_poli)->value('nm_poli');
+                    $location = 'Ralan - ' . ($poli ?? 'Umum');
+                    $moduleKey = 'ralan-queue';
+                    $data = ['no_rawat' => $latestReg->no_rawat];
                 } else {
-                    $location = ucfirst(strtolower($latestReg->jenis)) . ' (selesai)';
+                    $location = 'Selesai';
                 }
             }
 
             return [
-                'id' => $p->id,
-                'no_rm' => $p->no_rm,
-                'nama' => $p->nama,
-                'nik' => $p->nik,
-                'jenis_kelamin' => $p->jenis_kelamin,
+                'no_rkm_medis' => $p->no_rkm_medis,
+                'nm_pasien' => $p->nm_pasien,
+                'no_ktp' => $p->no_ktp,
+                'jk' => $p->jk,
+                'tgl_lahir' => $p->tgl_lahir,
                 'location' => $location,
                 'module_key' => $moduleKey,
                 'data' => $data,
-                'tgl_registrasi' => $latestReg ? $latestReg->tgl_registrasi : null,
-                'jenis_registrasi' => $latestReg ? $latestReg->jenis : null,
-                'status_registrasi' => $latestReg ? $latestReg->status : null,
+                'tgl_registrasi' => $latestReg->tgl_registrasi ?? null,
             ];
         });
 

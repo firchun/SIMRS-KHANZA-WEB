@@ -105,6 +105,67 @@
                                 </div>
                             </div>
                         </div>
+
+                        {{-- BOR & Kamar --}}
+                        <div class="mt-6">
+                            <h3 class="text-sm font-semibold mb-3 flex items-center gap-2" style="color:var(--text-primary)">
+                                <svg class="w-4 h-4" style="color:var(--accent-purple)" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+                                    <path d="M3.75 6h16.5M3.75 12h16.5M3.75 18h16.5"/>
+                                </svg>
+                                Bed Occupancy
+                            </h3>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                                {{-- BOR Card --}}
+                                <div class="rounded-lg p-3 border" style="background-color:rgba(147,51,234,0.08);border-color:rgba(147,51,234,0.2)">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-xs" style="color:var(--text-muted)">BOR</span>
+                                        <span class="text-lg font-bold" style="color:#9333ea" x-text="stats.ranap.bor + '%'"></span>
+                                    </div>
+                                    <div class="h-2 rounded-full overflow-hidden" style="background-color:rgba(147,51,234,0.15)">
+                                        <div class="h-full rounded-full transition-all duration-500" style="background-color:#9333ea" :style="'width:' + stats.ranap.bor + '%'"></div>
+                                    </div>
+                                    <div class="flex justify-between mt-1 text-[10px]" style="color:var(--text-muted)">
+                                        <span x-text="'Terisi: ' + stats.ranap.occupied_bed"></span>
+                                        <span x-text="'Tersedia: ' + stats.ranap.available_bed"></span>
+                                    </div>
+                                </div>
+
+                                {{-- Total Bed Card --}}
+                                <div class="rounded-lg p-3 border" style="background-color:rgba(59,130,246,0.08);border-color:rgba(59,130,246,0.2)">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-xs" style="color:var(--text-muted)">Total Tempat Tidur</span>
+                                        <span class="text-lg font-bold" style="color:#3b82f6" x-text="stats.ranap.total_bed"></span>
+                                    </div>
+                                    <div class="flex gap-3 mt-1">
+                                        <div class="flex items-center gap-1 text-[10px]" style="color:var(--text-muted)">
+                                            <span class="w-2 h-2 rounded-full inline-block" style="background-color:#ef4444"></span>
+                                            <span x-text="'Terisi ' + stats.ranap.occupied_bed"></span>
+                                        </div>
+                                        <div class="flex items-center gap-1 text-[10px]" style="color:var(--text-muted)">
+                                            <span class="w-2 h-2 rounded-full inline-block" style="background-color:#22c55e"></span>
+                                            <span x-text="'Kosong ' + stats.ranap.available_bed"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {{-- Per Class Breakdown --}}
+                            <div class="space-y-2">
+                                <template x-for="k in stats.ranap.kelas" :key="k.kelas">
+                                    <div class="rounded-lg p-2.5 border" style="border-color:var(--border);background-color:var(--bg-muted)">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <span class="text-xs font-medium" x-text="'Kelas ' + k.kelas"></span>
+                                            <span class="text-[10px]" style="color:var(--text-muted)" x-text="k.terisi + '/' + k.total + ' terisi'"></span>
+                                        </div>
+                                        <div class="h-2 rounded-full overflow-hidden" style="background-color:rgba(34,197,94,0.15)">
+                                            <div class="h-full rounded-full" style="background:linear-gradient(90deg,#ef4444,#f97316,#22c55e)" :style="'width:' + (k.total ? (k.terisi/k.total*100) : 0) + '%'"></div>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div x-show="!stats.ranap.kelas?.length" class="text-center py-4 text-xs" style="color:var(--text-muted)">Tidak ada data kamar</div>
+                            </div>
+                        </div>
                     </div>
                 </template>
             </div>

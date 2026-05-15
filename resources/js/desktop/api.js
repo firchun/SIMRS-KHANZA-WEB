@@ -1,3 +1,9 @@
+import Alpine from 'alpinejs';
+
+function pushError(info) {
+    try { Alpine.store('errors')?.add(info); } catch {}
+}
+
 export const api = {
     baseUrl: '/api',
     _cache: {},
@@ -18,15 +24,29 @@ export const api = {
         const opts = { method, headers };
         if (data) opts.body = JSON.stringify(data);
 
-        const res = await fetch(this.baseUrl + path, opts);
-        const json = await res.json();
+        let res, json;
+        try {
+            res = await fetch(this.baseUrl + path, opts);
+            const ct = res.headers.get('content-type') || '';
+            if (ct.includes('application/json')) {
+                json = await res.json();
+            } else {
+                const text = await res.text();
+                json = { message: text.slice(0, 500) };
+            }
+        } catch (e) {
+            pushError({ type: 'Network Error', message: e.message, file: path, timestamp: Date.now() });
+            throw e;
+        }
 
         if (!res.ok) {
             if (res.status === 401) {
                 localStorage.removeItem('token');
                 window.location.href = '/login';
             }
-            throw new Error(json.message || 'Request failed');
+            const msg = json.message || 'Request failed (' + res.status + ')';
+            pushError({ type: 'API ' + res.status, message: msg, file: path, timestamp: Date.now() });
+            throw new Error(msg);
         }
 
         if (method === 'GET') {

@@ -1,8 +1,8 @@
 # SIMRS Khanza — Web Desktop
 
-Aplikasi **SIMRS Khanza** berbasis web dengan antarmuka desktop (windowed UI). Dibangun di atas database SIMRS Khanza yang sudah ada, menyediakan modul-modul klinis, farmasi, dan kasir dalam bentuk Single Page Application dengan tampilan seperti sistem operasi desktop.
+Aplikasi **SIMRS Khanza** berbasis web dengan antarmuka desktop (windowed UI). Dibangun di atas database SIMRS Khanza yang sudah ada, menyediakan modul-modul klinis, farmasi, laboratorium, dan bridging BPJS/SATU SEHAT dalam bentuk Single Page Application dengan tampilan seperti sistem operasi desktop.
 
-> **Fokus**: Sistem informasi rumah sakit — pendaftaran, IGD, rawat jalan, rawat inap, kasir, apotek/farmasi, bridging BPJS.
+> **Fokus**: Sistem informasi rumah sakit — pendaftaran, IGD, rawat jalan, rawat inap, kasir, apotek/farmasi, laboratorium, bridging BPJS, integrasi SATU SEHAT (FHIR).
 
 ---
 
@@ -13,11 +13,11 @@ Aplikasi **SIMRS Khanza** berbasis web dengan antarmuka desktop (windowed UI). D
 | **Backend** | Laravel 11, PHP 8.2 |
 | **Frontend** | Alpine.js 3, Tailwind CSS 3 |
 | **Auth** | Laravel Sanctum (token-based) |
-| **Database** | MySQL (SIMRS Khanza existing schema) + SQLite (Laravel internal) |
+| **Database** | MySQL (SIMRS Khanza existing schema) |
 | **Build** | Vite 6 |
 | **PWA** | Service Worker + Manifest |
-| **Dependensi JS** | Axios, Alpine.js |
-| **Dependensi PHP** | Laravel, Sanctum, Tinker |
+| **Dependensi JS** | Alpine.js |
+| **Dependensi PHP** | Laravel, Sanctum, Tinker, SATUSEHAT Integration SDK |
 
 ---
 
@@ -27,23 +27,31 @@ Aplikasi **SIMRS Khanza** berbasis web dengan antarmuka desktop (windowed UI). D
 ├── app/
 │   ├── Http/
 │   │   ├── Controllers/
-│   │   │   ├── Api/              # 13 API controllers
+│   │   │   ├── Api/              # 17 API controllers
 │   │   │   │   ├── ApotekController.php
 │   │   │   │   ├── AuthController.php
+│   │   │   │   ├── BpjsController.php
 │   │   │   │   ├── DashboardController.php
 │   │   │   │   ├── IcdController.php
 │   │   │   │   ├── IgdController.php
 │   │   │   │   ├── JadwalController.php
 │   │   │   │   ├── KasirController.php
+│   │   │   │   ├── LaboratoriumController.php
 │   │   │   │   ├── PasienController.php
 │   │   │   │   ├── RalanController.php
 │   │   │   │   ├── RanapController.php
 │   │   │   │   ├── RegistrasiController.php
+│   │   │   │   ├── SatuSehatController.php
 │   │   │   │   ├── SettingsController.php
 │   │   │   │   └── TindakanController.php
 │   │   │   └── DesktopController.php   # Serves SPA views
 │   │   └── ─
-│   └── Models/                   # 12 Eloquent models
+│   │   └── Services/              # BPJS HTTP client
+│   │       └── BpjsService.php
+│   └── Models/                   # Eloquent models
+│
+├── bootstrap/
+│   └── app.php                   # Exception handler (JSON for API)
 │
 ├── resources/
 │   ├── css/app.css               # Tailwind + custom CSS + theme variables
@@ -51,7 +59,7 @@ Aplikasi **SIMRS Khanza** berbasis web dengan antarmuka desktop (windowed UI). D
 │   │   ├── app.js                # Alpine store & component definitions
 │   │   ├── bootstrap.js          # Axios setup
 │   │   └── desktop/
-│   │       ├── api.js            # API client (fetch + cache)
+│   │       ├── api.js            # API client (fetch + cache + error logging)
 │   │       └── window-manager.js # Window management (open/close/drag/resize)
 │   └── views/
 │       ├── auth/login.blade.php
@@ -60,12 +68,12 @@ Aplikasi **SIMRS Khanza** berbasis web dengan antarmuka desktop (windowed UI). D
 │       │   ├── index.blade.php
 │       │   ├── start-menu.blade.php
 │       │   ├── taskbar.blade.php
-│       │   ├── window-container.blade.php
-│       │   └── modules/          # 23 module views
+│       │   ├── window-container.blade.php  # Skeleton loading, error state
+│       │   └── modules/          # 26 module views
 │       └── welcome.blade.php
 │
 ├── routes/
-│   ├── api.php                   # ±85 endpoint definitions
+│   ├── api.php                   # 140+ endpoint definitions
 │   ├── web.php                   # Login & SPA routes
 │   └── console.php
 │
@@ -74,7 +82,7 @@ Aplikasi **SIMRS Khanza** berbasis web dengan antarmuka desktop (windowed UI). D
 │   ├── icons/                    # PWA icons
 │   └── sw.js                     # Service Worker
 │
-├── config/                       # 11 Laravel config files
+├── config/                       # Laravel config files
 ├── database/
 │   ├── migrations/               # Schema migrations
 │   └── seeders/                  # Seeders (users, master data)
@@ -88,20 +96,92 @@ Aplikasi **SIMRS Khanza** berbasis web dengan antarmuka desktop (windowed UI). D
 | Modul | File View | Fitur |
 |-------|-----------|-------|
 | **Registrasi** | `registrasi/index` | Pendaftaran pasien baru, cari pasien, pilih poli/dokter |
-| **IGD** | `igd/index`, `igd/tindakan` | Daftar pasien IGD, triage, tindakan, diagnosis, edit pasien |
-| **Ralan** | `ralan/queue` | Antrian rawat jalan, pemeriksaan, resep |
-| **Ranap** | `ranap/index`, `ranap/admission` | Daftar rawat inap, admit, pindah kamar, pulangkan, riwayat kamar, ubah waktu |
+| **IGD** | `igd/index`, `igd/tindakan`, `igd/grafik-vital-sign` | Daftar pasien IGD, triage, tindakan, diagnosis, edit pasien, grafik vital sign |
+| **Ralan** | `ralan/queue` | Antrian rawat jalan, pemeriksaan, SOAP, resep |
+| **Ranap** | `ranap/index`, `ranap/admission` | Daftar rawat inap, admit, pindah kamar, pulangkan, riwayat kamar, ubah waktu, DPJP management |
 | **Kasir** | `kasir/index`, `kasir/nota` | Tagihan rawat jalan, rawat inap, kamar, laporan |
-| **Apotek** | `apotek/index` | Master data: industri farmasi, jenis/kategori/golongan obat, data barang, kode satuan |
+| **Apotek/Farmasi** | `apotek/index` | Dashboard (counts real, stok per unit, mutasi), master data: industri, jenis, kategori, golongan, kode satuan, data barang |
 | **Pasien** | `pasien/index`, `pasien/detail`, `pasien/riwayat` | Cari, tambah, edit pasien, detail & riwayat kunjungan |
 | **Jadwal** | `jadwal/index` | Jadwal praktik dokter, master poli, master penjab (jenis bayar) |
-| **Data Tindakan** | `data-tindakan/index` | Master tarif tindakan per jenis |
+| **Data Tindakan** | `data-tindakan/index` | Master tarif tindakan per jenis (jalan, inap, operasi, lab, radiologi) |
 | **ICD** | `icd/index` | Pencarian ICD-10 dan ICD-9 |
-| **Bridging BPJS** | `bridging/sep`, `bridging/surat-kontrol`, `bridging/prb` | SEP, Surat Kontrol, PRB |
+| **Laboratorium** | `lab/index` | Permintaan lab, hasil, template, sampling, integrasi LIS |
+| **Bridging BPJS** | `bridging-bpjs/index` | Dashboard BPJS, SEP, antrean, kamar Applicare, surat kontrol, PRB, jadwal HFIS, Icare, Pcare, URL API MJKN tester |
+| **Satu Sehat (FHIR)** | `satu-sehat/index` | Dashboard resource counts, token, patient, encounter, condition, observation |
 | **Berkas Perawatan** | `berkas-perawatan/index` | Berkas perawatan pasien |
-| **Settings** | `settings/index` | Identitas rumah sakit, depo, industri farmasi |
-| **Chatbot** | `chatbot/index` | Asisten AI |
-| **Developers** | `developers/index` | Informasi teknis & debug |
+| **Settings** | `settings/index` | Identitas rumah sakit, depo farmasi, industri farmasi |
+| **Chatbot** | `chatbot/index` | Asisten AI (multi-model: OpenAI, Anthropic, local) |
+| **Error Log** | `error/index` | Log error real-time dari API |
+| **Developers** | `developers/index` | Dokumentasi API (18 section, 146 endpoint), searchable |
+
+---
+
+## Fitur Unggulan
+
+### Window Management
+- Sistem window terapung dengan drag, resize, minimize/maximize/close
+- Skeleton loading saat modul dimuat
+- Taskbar dengan daftar window aktif
+
+### Error Handling
+- Semua error API tercatat di `Alpine.store('errors')`
+- Error module menampilkan detail (type, message, file, timestamp, stack)
+- Button error di taskbar dengan badge count
+- Exception handler Laravel selalu return JSON untuk API routes
+
+### Integrasi Eksternal
+- **BPJS Kesehatan**: Vclaim, Antrian, Aplicare, Icare, Pcare — dengan status koneksi real-time (ping + latency)
+- **SATU SEHAT (FHIR)**: Patient, Encounter, Condition, Observation — resource data dari tabel `satu_sehat_` prefiks
+- **LIS (Laboratory Information System)**: Kirim & tarik data lab
+
+### Dashboard Real-time
+- **Dashboard Farmasi**: Counts dari DB real, stok per unit dari `gudangbarang`, mutasi dari `mutasibarang`, obat habis/kritis
+- **Dashboard BPJS**: Antrian dari `reg_periksa`, status API (Vclaim, Antrian, Aplicare, Icare, Pcare), bed occupancy
+- **Dashboard Satu Sehat**: Counts per FHIR resource dari tabel `satu_sehat_`
+
+---
+
+## API Endpoint
+
+Semua endpoint API berada di prefix `/api/` dan diamankan dengan **Laravel Sanctum** (Bearer token). Dokumentasi lengkap tersedia di modul **Developers** dalam aplikasi.
+
+### Publik
+| Method | Path | Keterangan |
+|--------|------|------------|
+| POST | `/api/login` | Login |
+
+### Terautentikasi
+| Grup | Endpoints |
+|------|-----------|
+| **Auth** | GET `/user`, POST `/logout` |
+| **Dashboard** | GET `/dashboard/stats`, GET `/pasien/search-location` |
+| **Pasien** | CRUD `/pasien`, search, dokter-list, search-regperiksa |
+| **Registrasi** | today-list, store, dokter-by-poli, petugas-list |
+| **IGD** | list, dashboard, register, status, update, tindakan, triage, diagnosis, penanganan |
+| **Ralan** | list, poli-list, dokter-list, dashboard, queue, register, start, examination, resep |
+| **Ranap** | list, dashboard, admit, pindah-kamar, pulangkan, ubah-waktu, kamar-list, riwayat-kamar, DPJP (list/add/delete), destroy |
+| **Kasir** | rajal, ranap, kamar, laporan |
+| **Tindakan** | jns-perawatan, petugas-list, penanganan (IGD/Ranap), riwayat kunjungan, SOAP (list/save), grafik vital sign |
+| **ICD** | search |
+| **Jadwal** | praktek, poli CRUD |
+| **Penjab** | penjab CRUD |
+| **Settings** | identitas (get/update), depo-list, industri-farmasi |
+| **Data Tindakan** | list/{jenis} |
+| **Apotek/Farmasi** | dashboard, industri, jenis, kategori, golongan, kodesatuan, databarang |
+| **Laboratorium** | list, detail, sample, hasil, data-hasil, simpan-hasil, templates, perawatan, kirim-lis, tarik-lis |
+| **Satu Sehat** | dashboard, token, patient (CRUD), encounter, condition, observation |
+| **BPJS** | dashboard, peserta, SEP, referensi (diagnosa/poli/faskes/dpjp), antrean, kamar-applicare, surat-kontrol, PRB, jadwal-HFIS, Icare |
+
+---
+
+## Error Handling & Logging
+
+Setiap kegagalan request API otomatis:
+1. Dicatat ke `Alpine.store('errors')` dengan detail (type, message, file, timestamp)
+2. Ditampilkan di badge taskbar
+3. Bisa dilihat di modul **Error Log** (bisa di-salin ke clipboard)
+
+Backend: Exception handler di `bootstrap/app.php` memastikan semua error API return JSON `{ message, error }` — tidak ada HTML crash.
 
 ---
 
@@ -157,35 +237,7 @@ DB_PASSWORD=
 
 ### Login
 
-Sistem login menggunakan akun **SIMRS Khanza** yang sudah ada (tabel `user` / `admin`), diverifikasi dengan `AES_DECRYPT`.
-
----
-
-## API Endpoint
-
-Semua endpoint API berada di prefix `/api/` dan diamankan dengan **Laravel Sanctum** (Bearer token).
-
-### Publik
-| Method | Path | Keterangan |
-|--------|------|------------|
-| POST | `/api/login` | Login |
-
-### Terautentikasi
-| Grup | Endpoints |
-|------|-----------|
-| **Dashboard** | `GET /dashboard/stats`, `GET /pasien/search-location` |
-| **Pasien** | CRUD `/pasien`, search, dokter-list, search-regperiksa |
-| **Registrasi** | today-list, store, dokter-by-poli, petugas-list |
-| **IGD** | list, dashboard, register, status, update, tindakan, triage, diagnosis |
-| **Ralan** | list, poli-list, dokter-list, dashboard, queue, register, examination, resep |
-| **Ranap** | list, dashboard, admit, pindah-kamar, pulangkan, destroy, ubah-waktu, kamar-list, riwayat-kamar |
-| **Kasir** | rajal, ranap, kamar, laporan |
-| **Tindakan** | jns-perawatan, petugas-list, penanganan (IGD/Ranap), riwayat, SOAP |
-| **Apotek** | industri, jenis, kategori, golongan, kodesatuan, databarang |
-| **ICD** | search |
-| **Jadwal** | praktek, poli CRUD, penjab CRUD |
-| **Settings** | identitas (get/update), depo-list, industri-farmasi |
-| **Data Tindakan** | list/{jenis} |
+Sistem login menggunakan akun **SIMRS Khanza** yang sudah ada (tabel `user` diverifikasi dengan AES_DECRYPT).
 
 ---
 
@@ -198,6 +250,15 @@ npm run dev
 # Build untuk production
 npm run build
 ```
+
+---
+
+## Catatan Arsitektur
+
+- **Route ordering**: Route dengan parameter wildcard (`.*`) harus didefinisikan setelah route spesifik untuk menghindari greedy matching (contoh: `DELETE /ranap/dpjp/{no_rawat}/{kd_dokter}` sebelum `DELETE /ranap/{no_rawat}`)
+- **x-ref vs x-show**: `x-ref` tidak bekerja di dalam `<template x-if>` karena elemen belum ada di DOM; gunakan `x-show` sebagai gantinya
+- **SATU SEHAT**: Data FHIR disimpan di tabel dengan prefiks `satu_sehat_`; fallback count menggunakan `satusehat_log`
+- **BPJS**: Environment variable untuk API key masih kosong (belum dikonfigurasi); status koneksi di-test via ping HTTP
 
 ---
 

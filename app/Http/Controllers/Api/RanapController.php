@@ -20,7 +20,10 @@ class RanapController extends Controller
             ->leftJoin('kamar', 'kamar_inap.kd_kamar', '=', 'kamar.kd_kamar')
             ->leftJoin('bangsal', 'kamar.kd_bangsal', '=', 'bangsal.kd_bangsal')
             ->leftJoin('dokter', 'reg_periksa.kd_dokter', '=', 'dokter.kd_dokter')
-            ->whereBetween('kamar_inap.tgl_masuk', [$tgl1, $tgl2]);
+            ->where(function ($qq) use ($tgl1, $tgl2) {
+                $qq->where('kamar_inap.stts_pulang', '-')
+                    ->orWhereBetween('kamar_inap.tgl_masuk', [$tgl1, $tgl2]);
+            });
 
         if ($status === 'belum') {
             $query->where('kamar_inap.stts_pulang', '-');
@@ -392,6 +395,59 @@ class RanapController extends Controller
             ]);
 
         return response()->json(['message' => 'Waktu keluar berhasil diubah']);
+    }
+
+    public function dpjpList($no_rawat)
+    {
+        $list = DB::table('dpjp_ranap')
+            ->where('no_rawat', $no_rawat)
+            ->leftJoin('dokter', 'dpjp_ranap.kd_dokter', '=', 'dokter.kd_dokter')
+            ->select('dpjp_ranap.kd_dokter', 'dokter.nm_dokter')
+            ->get();
+        return response()->json($list);
+    }
+
+    public function dpjpDoctors()
+    {
+        $doctors = DB::table('dokter')
+            ->select('kd_dokter', 'nm_dokter')
+            ->orderBy('nm_dokter')
+            ->get();
+        return response()->json($doctors);
+    }
+
+    public function dpjpAdd(Request $request)
+    {
+        $data = $request->validate([
+            'no_rawat' => 'required|string|max:17',
+            'kd_dokter' => 'required|string|max:20',
+        ]);
+
+        $exists = DB::table('dpjp_ranap')
+            ->where('no_rawat', $data['no_rawat'])
+            ->where('kd_dokter', $data['kd_dokter'])
+            ->exists();
+
+        if ($exists) {
+            return response()->json(['message' => 'DPJP sudah terdaftar'], 409);
+        }
+
+        DB::table('dpjp_ranap')->insert([
+            'no_rawat' => $data['no_rawat'],
+            'kd_dokter' => $data['kd_dokter'],
+        ]);
+
+        return response()->json(['message' => 'DPJP berhasil ditambahkan'], 201);
+    }
+
+    public function dpjpDelete($no_rawat, $kd_dokter)
+    {
+        DB::table('dpjp_ranap')
+            ->where('no_rawat', $no_rawat)
+            ->where('kd_dokter', $kd_dokter)
+            ->delete();
+
+        return response()->json(['message' => 'DPJP berhasil dihapus']);
     }
 
     public function dashboard()

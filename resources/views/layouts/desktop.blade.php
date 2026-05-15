@@ -12,6 +12,7 @@
     <link rel="apple-touch-icon" href="/icons/icon-192.png">
     <title>SIMRS Khanza - Web Desktop</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script>
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

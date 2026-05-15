@@ -72,6 +72,18 @@
                     <template x-if="!err.file && !err.line && !err.stack">
                         <div style="color:var(--text-muted)">Tidak ada detail tambahan</div>
                     </template>
+                    <button @click="
+                        navigator.clipboard.writeText(
+                            '[' + err.type + '] ' + err.message + '\n' +
+                            (err.file ? 'File: ' + err.file + '\n' : '') +
+                            (err.line ? 'Line: ' + err.line + '\n' : '') +
+                            (err.stack ? 'Stack:\n' + err.stack : '')
+                        );
+                        $el.textContent = 'Tersalin!';
+                        setTimeout(() => $el.textContent = 'Salin Error', 2000);
+                    "
+                        class="mt-2 text-[11px] px-2 py-1 rounded hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                        style="color:var(--accent-blue)">Salin Error</button>
                 </div>
             </div>
         </template>

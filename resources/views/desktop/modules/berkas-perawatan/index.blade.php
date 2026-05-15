@@ -12,6 +12,13 @@
     searchQuery: '',
     selectedId: null,
     openedPatient: null,
+    showUpload: false,
+    uploadForm: { no_rkm_medis: '', nm_pasien: '', tgl_masuk: '', jenis_berkas: '', file: null },
+    jenisBerkasList: [
+        'Ringkasan Medis', 'Hasil Laboratorium', 'Hasil Radiologi', 'SOAP / CPPT',
+        'Resep Obat', 'Laporan Operasi', 'EKG', 'USG', 'CT Scan', 'MRI',
+        'Surat Rujukan', 'Surat Kontrol', 'Surat Sehat', 'Lainnya',
+    ],
 
     patients: [
         { id: 1, no_rm: 'RM-001', nama: 'Budi Santoso', nik: '3273010505800001', tgl_lahir: '1980-05-05', jk: 'L', partisi: 'ranap', diagnosa: 'Demam Berdarah', tgl_masuk: '2026-05-10', ruangan: 'Anggrek-201' },
@@ -122,19 +129,86 @@
     },
 
     formatDate(tgl) {
+        if (!tgl) return '';
         const d = new Date(tgl + 'T00:00:00');
         return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    },
+
+    uploadSearchResults: [],
+    uploadSearchLoading: false,
+    async searchPasienForUpload() {
+        const q = this.uploadForm.no_rkm_medis;
+        if (q.length < 2) { this.uploadSearchResults = []; return; }
+        this.uploadSearchLoading = true;
+        try {
+            const res = await this.$store.api.get('/pasien/search?q=' + encodeURIComponent(q));
+            this.uploadSearchResults = (res || []).slice(0, 10);
+        } catch (e) { console.error(e); }
+        this.uploadSearchLoading = false;
+    },
+
+    selectPasienUpload(p) {
+        this.uploadForm.no_rkm_medis = p.no_rkm_medis;
+        this.uploadForm.nm_pasien = p.nm_pasien;
+        this.uploadSearchResults = [];
+    },
+
+    openUpload() {
+        this.showUpload = true;
+        this.uploadForm = { no_rkm_medis: '', nm_pasien: '', tgl_masuk: '', jenis_berkas: '', file: null };
+    },
+
+    closeUpload() {
+        this.showUpload = false;
+        this.uploadSearchResults = [];
+    },
+
+    handleFileSelect(e) {
+        this.uploadForm.file = e.target.files?.[0] || null;
+    },
+
+    async submitUpload() {
+        const f = this.uploadForm;
+        if (!f.no_rkm_medis || !f.jenis_berkas || !f.file) return;
+        try {
+            const formData = new FormData();
+            formData.append('no_rkm_medis', f.no_rkm_medis);
+            formData.append('tgl_masuk', f.tgl_masuk);
+            formData.append('jenis_berkas', f.jenis_berkas);
+            formData.append('file', f.file);
+            const token = localStorage.getItem('token');
+            const res = await fetch('/api/berkas-perawatan/upload', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' },
+                body: formData,
+            });
+            if (!res.ok) throw new Error((await res.json()).message || 'Upload gagal');
+            this.closeUpload();
+        } catch (e) { console.error(e); }
     }
 }" class="flex h-full" style="color:var(--text-primary)">
 
     {{-- Sidebar --}}
-    <div class="w-52 shrink-0 flex flex-col overflow-hidden" style="background-color:var(--bg-muted);border-right:1px solid var(--border)">
-        <div class="px-4 py-3 border-b" style="border-color:var(--border)">
-            <div class="text-sm font-semibold">Berkas Perawatan</div>
-            <div class="text-[10px]" style="color:var(--text-muted)">Folder Pasien</div>
+    <div class="w-52 shrink-0 flex flex-col overflow-hidden"
+        style="background-color:var(--bg-muted);border-right:1px solid var(--border)">
+        <div class=" border-b" style="border-color:var(--border)">
+            <div class="px-3 py-2">
+                <div class="text-sm font-semibold">Berkas Perawatan</div>
+                <div class="text-[10px]" style="color:var(--text-muted)">Folder Pasien</div>
+            </div>
+            <div class="px-3 border-t py-2" style="border-color:var(--border)">
+                <button @click="openUpload"
+                    class="w-full btn-primary flex items-center gap-2 px-3 py-2 rounded text-xs font-medium transition-colors">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <path d="M12 4v16m8-8H4" />
+                    </svg>
+                    Upload Berkas
+                </button>
+            </div>
         </div>
         <div class="flex-1 overflow-y-auto py-2">
-            <div class="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide" style="color:var(--text-muted)">Partisi</div>
+            <div class="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide" style="color:var(--text-muted)">
+                Partisi</div>
             <template x-for="part in partitions" :key="part.key">
                 <button @click="activePartition = part.key; openedPatient = null"
                     class="w-full text-left px-3 py-2 transition-colors flex items-center gap-2.5 rounded mx-1"
@@ -143,60 +217,72 @@
                     <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none"
                         :stroke="activePartition === part.key ? 'var(--accent-blue)' : 'currentColor'"
                         stroke-width="1.5">
-                        <path :d="part.icon"/>
+                        <path :d="part.icon" />
                     </svg>
                     <span class="text-xs flex-1" x-text="part.label"></span>
                     <span class="text-[10px]" style="color:var(--text-muted)" x-text="part.count"></span>
                 </button>
             </template>
+            {{-- Divider --}}
+
+
         </div>
     </div>
 
     {{-- Content --}}
     <div class="flex-1 flex flex-col overflow-hidden">
         {{-- Toolbar --}}
-        <div class="flex items-center gap-2 px-3 py-1.5 border-b shrink-0" style="border-color:var(--border);background-color:var(--bg-muted)">
-            <button @click="goBack" :disabled="!openedPatient"
-                class="p-1 rounded transition-colors"
+        <div class="flex items-center gap-2 px-3 py-1.5 border-b shrink-0"
+            style="border-color:var(--border);background-color:var(--bg-muted)">
+            <button @click="goBack" :disabled="!openedPatient" class="p-1 rounded transition-colors"
                 :style="openedPatient ? 'color:var(--text-primary)' : 'color:var(--text-muted)'"
                 @mouseenter="openedPatient ? $el.style.backgroundColor='var(--bg-hover)' : ''"
                 @mouseleave="$el.style.backgroundColor='transparent'">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M19 12H5M12 19l-7-7 7-7"/>
+                    <path d="M19 12H5M12 19l-7-7 7-7" />
                 </svg>
             </button>
             <div class="flex items-center gap-1 text-xs" style="color:var(--text-muted)">
                 <template x-for="(seg, i) in currentPath" :key="i">
                     <span class="flex items-center gap-1">
                         <span x-show="i > 0" class="mx-0.5">/</span>
-                        <span :style="i === currentPath.length - 1 ? 'color:var(--text-primary);font-weight:500' : ''" x-text="seg"></span>
+                        <span :style="i === currentPath.length - 1 ? 'color:var(--text-primary);font-weight:500' : ''"
+                            x-text="seg"></span>
                     </span>
                 </template>
             </div>
             <div class="flex-1"></div>
             <div class="flex items-center gap-0.5 border-r pr-2 mr-2" style="border-color:var(--border)">
-                <button @click="viewMode = 'grid'"
-                    class="p-1 rounded transition-colors"
+                <button @click="viewMode = 'grid'" class="p-1 rounded transition-colors"
                     :style="viewMode === 'grid' ? 'color:var(--accent-blue);background-color:rgba(59,130,246,0.1)' : 'color:var(--text-muted)'"
                     @mouseenter="$el.style.backgroundColor='var(--bg-hover)'"
                     @mouseleave="viewMode === 'grid' ? '' : $el.style.backgroundColor='transparent'">
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+                        <rect x="3" y="3" width="7" height="7" />
+                        <rect x="14" y="3" width="7" height="7" />
+                        <rect x="3" y="14" width="7" height="7" />
+                        <rect x="14" y="14" width="7" height="7" />
                     </svg>
                 </button>
-                <button @click="viewMode = 'list'"
-                    class="p-1 rounded transition-colors"
+                <button @click="viewMode = 'list'" class="p-1 rounded transition-colors"
                     :style="viewMode === 'list' ? 'color:var(--accent-blue);background-color:rgba(59,130,246,0.1)' : 'color:var(--text-muted)'"
                     @mouseenter="$el.style.backgroundColor='var(--bg-hover)'"
                     @mouseleave="viewMode === 'list' ? '' : $el.style.backgroundColor='transparent'">
                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+                        <line x1="8" y1="6" x2="21" y2="6" />
+                        <line x1="8" y1="12" x2="21" y2="12" />
+                        <line x1="8" y1="18" x2="21" y2="18" />
+                        <line x1="3" y1="6" x2="3.01" y2="6" />
+                        <line x1="3" y1="12" x2="3.01" y2="12" />
+                        <line x1="3" y1="18" x2="3.01" y2="18" />
                     </svg>
                 </button>
             </div>
             <div class="relative">
-                <svg class="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3" style="color:var(--text-muted)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                <svg class="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3" style="color:var(--text-muted)"
+                    viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8" />
+                    <path d="M21 21l-4.35-4.35" />
                 </svg>
                 <input type="text" x-model="searchQuery" placeholder="Cari pasien..."
                     class="form-input text-xs pl-7 pr-2 py-1 w-44" style="background-color:var(--bg-input)">
@@ -212,24 +298,28 @@
                     <template x-if="viewMode === 'grid'">
                         <div class="flex flex-wrap gap-4">
                             <template x-for="p in filteredPatients" :key="p.id">
-                                <div @click="selectPatient(p.id)"
-                                    @dblclick="openFolder(p.id)"
+                                <div @click="selectPatient(p.id)" @dblclick="openFolder(p.id)"
                                     class="w-28 p-2 rounded-lg transition-all cursor-pointer text-center"
                                     :class="selectedId === p.id ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-400' : 'hover:bg-black/5 dark:hover:bg-white/5'"
                                     style="color:var(--text-primary)">
                                     <div class="flex justify-center mb-1">
-                                        <svg class="w-14 h-14" viewBox="0 0 24 24" fill="#f59e0b" stroke="#d97706" stroke-width="0.5">
-                                            <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                                        <svg class="w-14 h-14" viewBox="0 0 24 24" fill="#f59e0b" stroke="#d97706"
+                                            stroke-width="0.5">
+                                            <path
+                                                d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                                         </svg>
                                     </div>
                                     <div class="text-[11px] leading-tight truncate max-w-full" x-text="p.nama"></div>
-                                    <div class="text-[9px] text-gray-500 dark:text-gray-400 truncate" x-text="p.no_rm"></div>
+                                    <div class="text-[9px] text-gray-500 dark:text-gray-400 truncate" x-text="p.no_rm">
+                                    </div>
                                 </div>
                             </template>
                             <template x-if="filteredPatients.length === 0">
                                 <div class="w-full text-center py-12" style="color:var(--text-muted)">
-                                    <svg class="w-12 h-12 mx-auto mb-2 opacity-50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                                        <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                                    <svg class="w-12 h-12 mx-auto mb-2 opacity-50" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="1">
+                                        <path
+                                            d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                                     </svg>
                                     <p class="text-sm">Tidak ada pasien</p>
                                 </div>
@@ -256,18 +346,23 @@
                                         :class="selectedId === p.id ? 'bg-blue-100 dark:bg-blue-900/30' : 'hover:bg-black/5 dark:hover:bg-white/5'"
                                         style="color:var(--text-primary)">
                                         <td class="px-3 py-2">
-                                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="#f59e0b" stroke="#d97706" stroke-width="0.5">
-                                                <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/>
+                                            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="#f59e0b" stroke="#d97706"
+                                                stroke-width="0.5">
+                                                <path
+                                                    d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                                             </svg>
                                         </td>
                                         <td class="px-3 py-2 font-medium" x-text="p.nama"></td>
-                                        <td class="px-3 py-2 font-mono text-[10px]" style="color:var(--text-muted)" x-text="p.no_rm"></td>
+                                        <td class="px-3 py-2 font-mono text-[10px]" style="color:var(--text-muted)"
+                                            x-text="p.no_rm"></td>
                                         <td class="px-3 py-2" x-text="p.diagnosa"></td>
-                                        <td class="px-3 py-2" style="color:var(--text-muted)" x-text="formatDate(p.tgl_masuk)"></td>
+                                        <td class="px-3 py-2" style="color:var(--text-muted)"
+                                            x-text="formatDate(p.tgl_masuk)"></td>
                                         <td class="px-3 py-2">
                                             <span class="text-[10px] px-2 py-0.5 rounded"
                                                 :style="p.partisi === 'ranap' ? 'background-color:rgba(139,92,246,0.1);color:rgb(139,92,246)' : p.partisi === 'ralan' ? 'background-color:rgba(34,197,94,0.1);color:rgb(34,197,94)' : p.partisi === 'lab' ? 'background-color:rgba(245,158,11,0.1);color:rgb(245,158,11)' : p.partisi === 'radiologi' ? 'background-color:rgba(236,72,153,0.1);color:rgb(236,72,153)' : 'background-color:rgba(107,114,128,0.1);color:rgb(107,114,128)'"
-                                                x-text="p.ruangan || p.poli || p.jenis_lab || p.jenis_radio || '-'"></td>
+                                                x-text="p.ruangan || p.poli || p.jenis_lab || p.jenis_radio || '-'">
+                                        </td>
                                     </tr>
                                 </template>
                             </tbody>
@@ -281,7 +376,8 @@
                 <div>
                     {{-- Patient info header --}}
                     <div class="flex items-center gap-3 mb-4 p-3 rounded-lg" style="background-color:var(--bg-muted)">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold" style="background-color:var(--accent-blue);color:#fff">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold"
+                            style="background-color:var(--accent-blue);color:#fff">
                             <span x-text="openedPatient.nama.charAt(0)"></span>
                         </div>
                         <div class="flex-1">
@@ -294,7 +390,8 @@
                                 <span x-text="openedPatient.diagnosa"></span>
                             </div>
                         </div>
-                        <span class="text-[10px]" style="color:var(--text-muted)" x-text="filteredPatients.length + ' folder'"></span>
+                        <span class="text-[10px]" style="color:var(--text-muted)"
+                            x-text="filteredPatients.length + ' folder'"></span>
                     </div>
 
                     {{-- Files grid --}}
@@ -304,8 +401,9 @@
                                 <div class="w-24 p-2 rounded-lg transition-all cursor-pointer text-center hover:bg-black/5 dark:hover:bg-white/5"
                                     style="color:var(--text-primary)">
                                     <div class="flex justify-center mb-1">
-                                        <svg class="w-12 h-12" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1">
-                                            <path :d="getFileIcon(doc.icon)"/>
+                                        <svg class="w-12 h-12" viewBox="0 0 24 24" fill="none" stroke="#3b82f6"
+                                            stroke-width="1">
+                                            <path :d="getFileIcon(doc.icon)" />
                                         </svg>
                                     </div>
                                     <div class="text-[10px] leading-tight truncate max-w-full" x-text="doc.nama"></div>
@@ -329,12 +427,14 @@
                                     <tr class="hover:bg-black/5 dark:hover:bg-white/5 transition-colors cursor-pointer"
                                         style="color:var(--text-primary)">
                                         <td class="px-3 py-2 flex items-center gap-2">
-                                            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.5">
-                                                <path :d="getFileIcon(doc.icon)"/>
+                                            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none"
+                                                stroke="#3b82f6" stroke-width="1.5">
+                                                <path :d="getFileIcon(doc.icon)" />
                                             </svg>
                                             <span x-text="doc.nama"></span>
                                         </td>
-                                        <td class="px-3 py-2" style="color:var(--text-muted)" x-text="formatDate(doc.tgl)"></td>
+                                        <td class="px-3 py-2" style="color:var(--text-muted)"
+                                            x-text="formatDate(doc.tgl)"></td>
                                         <td class="px-3 py-2" style="color:var(--text-muted)" x-text="doc.size"></td>
                                     </tr>
                                 </template>
@@ -353,13 +453,104 @@
         </div>
 
         {{-- Status bar --}}
-        <div class="flex items-center gap-3 px-3 py-1 border-t shrink-0 text-[10px]" style="border-color:var(--border);background-color:var(--bg-muted);color:var(--text-muted)">
+        <div class="flex items-center gap-3 px-3 py-1 border-t shrink-0 text-[10px]"
+            style="border-color:var(--border);background-color:var(--bg-muted);color:var(--text-muted)">
             <template x-if="!openedPatient">
                 <span x-text="filteredPatients.length + ' item'"></span>
             </template>
             <template x-if="openedPatient">
                 <span x-text="(patientDocs[openedPatient.id] || []).length + ' dokumen'"></span>
             </template>
+        </div>
+    </div>
+
+    {{-- Upload Modal --}}
+    <div x-show="showUpload" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div @mousedown.stop class="w-[480px] max-h-[80vh] flex flex-col rounded-lg shadow-2xl"
+            style="background-color:var(--bg-elevated)">
+            <div class="flex items-center justify-between px-4 py-2 border-b shrink-0"
+                style="border-color:var(--border)">
+                <h3 class="text-sm font-bold">Upload Berkas</h3>
+                <button @click="closeUpload" class="p-1 rounded hover:bg-black/10 dark:hover:bg-white/10">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto min-h-0 p-4 space-y-4">
+                {{-- No RM --}}
+                <div>
+                    <label class="text-xs font-medium">No. Rekam Medis</label>
+                    <div class="relative mt-0.5">
+                        <input type="text" x-model="uploadForm.no_rkm_medis"
+                            @input.debounce.300ms="searchPasienForUpload" placeholder="Ketik no. rekam medis..."
+                            class="form-input text-xs w-full py-1.5 pl-2 pr-8">
+                        <svg x-show="uploadSearchLoading"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 animate-spin"
+                            style="color:var(--text-muted)" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                            <path class="opacity-75" fill="currentColor"
+                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                    </div>
+                    {{-- Search Results Dropdown --}}
+                    <div x-show="uploadSearchResults.length" x-cloak
+                        class="mt-0.5 rounded border shadow-lg max-h-32 overflow-y-auto"
+                        style="border-color:var(--border);background-color:var(--bg-elevated)">
+                        <template x-for="p in uploadSearchResults" :key="p.no_rkm_medis">
+                            <button @click="selectPasienUpload(p)"
+                                class="w-full text-left px-2 py-1.5 text-xs hover:bg-black/10 dark:hover:bg-white/10 border-b"
+                                style="border-color:var(--border)">
+                                <span class="font-medium" x-text="p.no_rkm_medis"></span>
+                                <span class="ml-1" style="color:var(--text-muted)" x-text="'- ' + p.nm_pasien"></span>
+                            </button>
+                        </template>
+                    </div>
+                    {{-- Selected Patient --}}
+                    <div x-show="uploadForm.nm_pasien" class="mt-1 text-[11px]" style="color:var(--accent-green)">
+                        <span x-text="uploadForm.nm_pasien"></span>
+                    </div>
+                </div>
+
+                {{-- Tanggal Masuk --}}
+                <div>
+                    <label class="text-xs font-medium">Tanggal Masuk</label>
+                    <input type="date" x-model="uploadForm.tgl_masuk" class="form-input text-xs w-full mt-0.5 py-1.5">
+                </div>
+
+                {{-- Jenis Berkas --}}
+                <div>
+                    <label class="text-xs font-medium">Jenis Berkas</label>
+                    <select x-model="uploadForm.jenis_berkas" class="form-input text-xs w-full mt-0.5 py-1.5">
+                        <option value="">Pilih jenis berkas...</option>
+                        <template x-for="jb in jenisBerkasList" :key="jb">
+                            <option :value="jb" x-text="jb"></option>
+                        </template>
+                    </select>
+                </div>
+
+                {{-- File --}}
+                <div>
+                    <label class="text-xs font-medium">File</label>
+                    <div class="mt-0.5">
+                        <input type="file" @change="handleFileSelect"
+                            class="block w-full text-xs file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:cursor-pointer file:bg-blue-500 file:text-white"
+                            style="color:var(--text-primary)">
+                    </div>
+                    <div x-show="uploadForm.file" class="mt-1 text-[10px]" style="color:var(--text-muted)"
+                        x-text="uploadForm.file?.name"></div>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 px-4 py-3 border-t shrink-0"
+                style="border-color:var(--border);background-color:var(--bg-muted)">
+                <button @click="closeUpload" class="px-3 py-1.5 rounded text-xs font-medium"
+                    style="background-color:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border)">Batal</button>
+                <button @click="submitUpload"
+                    :disabled="!uploadForm.no_rkm_medis || !uploadForm.jenis_berkas || !uploadForm.file"
+                    class="px-4 py-1.5 rounded text-xs font-medium transition-colors"
+                    style="background-color:var(--accent-blue);color:#fff"
+                    :style="!uploadForm.no_rkm_medis || !uploadForm.jenis_berkas || !uploadForm.file ? 'opacity:0.5' : ''">Upload</button>
+            </div>
         </div>
     </div>
 </div>

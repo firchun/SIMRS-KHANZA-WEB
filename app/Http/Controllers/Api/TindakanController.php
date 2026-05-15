@@ -470,6 +470,7 @@ class TindakanController extends Controller
             'alergi' => 'nullable|string|max:80',
         ]);
 
+        $nip = $request->nip ?? auth()->user()->nik ?? '';
         DB::table('pemeriksaan_ralan')->insert([
             'no_rawat' => $no_rawat,
             'tgl_perawatan' => $request->tgl_perawatan ?? date('Y-m-d'),
@@ -479,6 +480,7 @@ class TindakanController extends Controller
             'penilaian' => $request->penilaian ?? '',
             'instruksi' => $request->instruksi ?? '',
             'evaluasi' => $request->evaluasi ?? '',
+            'rtl' => $request->rtl ?? '',
             'tensi' => $request->tensi ?? '',
             'suhu_tubuh' => $request->suhu_tubuh ?? '',
             'nadi' => $request->nadi ?? '',
@@ -490,7 +492,7 @@ class TindakanController extends Controller
             'berat' => $request->berat ?? '',
             'lingkar_perut' => $request->lingkar_perut ?? '',
             'alergi' => $request->alergi ?? '',
-            'nip' => $request->nip ?? '',
+            'nip' => $nip,
         ]);
 
         return response()->json(['message' => 'SOAP berhasil disimpan']);
@@ -502,6 +504,7 @@ class TindakanController extends Controller
             ->join('reg_periksa', 'pemeriksaan_ralan.no_rawat', '=', 'reg_periksa.no_rawat')
             ->where('reg_periksa.no_rkm_medis', $no_rkm_medis)
             ->select(
+                'pemeriksaan_ralan.no_rawat',
                 'pemeriksaan_ralan.tgl_perawatan',
                 'pemeriksaan_ralan.jam_rawat',
                 'pemeriksaan_ralan.tensi',
@@ -517,6 +520,31 @@ class TindakanController extends Controller
             )
             ->orderBy('pemeriksaan_ralan.tgl_perawatan')
             ->orderBy('pemeriksaan_ralan.jam_rawat')
+            ->get();
+        return response()->json($data);
+    }
+
+    public function soapGrafikByRawat($no_rawat)
+    {
+        $data = DB::table('pemeriksaan_ralan')
+            ->where('no_rawat', $no_rawat)
+            ->select(
+                'no_rawat',
+                'tgl_perawatan',
+                'jam_rawat',
+                'tensi',
+                'suhu_tubuh',
+                'nadi',
+                'respirasi',
+                'spo2',
+                'gcs',
+                'kesadaran',
+                'tinggi',
+                'berat',
+                'lingkar_perut',
+            )
+            ->orderBy('tgl_perawatan')
+            ->orderBy('jam_rawat')
             ->get();
         return response()->json($data);
     }
