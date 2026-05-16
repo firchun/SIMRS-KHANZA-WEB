@@ -1,4 +1,5 @@
 import './bootstrap';
+import './desktop/storage';
 import Alpine from 'alpinejs';
 import { windowManager } from './desktop/window-manager';
 import { api } from './desktop/api';
