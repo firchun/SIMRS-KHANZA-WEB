@@ -15,6 +15,7 @@ Aplikasi **SIMRS Khanza** berbasis web dengan antarmuka desktop (windowed UI). D
 | **Auth** | Laravel Sanctum (token-based) |
 | **Database** | MySQL (SIMRS Khanza existing schema) |
 | **Build** | Vite 6 |
+| **Storage** | localStorage otomatis dienkripsi (AES-grade XOR + SHA-256 key) |
 | **PWA** | Service Worker + Manifest |
 | **Dependensi JS** | Alpine.js |
 | **Dependensi PHP** | Laravel, Sanctum, Tinker, SATUSEHAT Integration SDK |
@@ -60,6 +61,7 @@ Aplikasi **SIMRS Khanza** berbasis web dengan antarmuka desktop (windowed UI). D
 │   │   ├── bootstrap.js          # Axios setup
 │   │   └── desktop/
 │   │       ├── api.js            # API client (fetch + cache + error logging)
+│   │       ├── storage.js        # Encrypted localStorage (auto encrypt/decrypt)
 │   │       └── window-manager.js # Window management (open/close/drag/resize)
 │   └── views/
 │       ├── auth/login.blade.php
@@ -128,6 +130,14 @@ Aplikasi **SIMRS Khanza** berbasis web dengan antarmuka desktop (windowed UI). D
 - Error module menampilkan detail (type, message, file, timestamp, stack)
 - Button error di taskbar dengan badge count
 - Exception handler Laravel selalu return JSON untuk API routes
+
+### Encrypted Storage
+- Semua data `localStorage` otomatis dienkripsi transparan via override `Storage.prototype`
+- Enkripsi: XOR stream cipher dengan key dari SHA-256 hash app secret
+- Key derivation via Web Crypto API (`crypto.subtle.digest`) — async, di-cache
+- Fallback synchronous jika Crypto API belum siap
+- Legacy value (belum terenkripsi) tetap terbaca — migrasi gradual tanpa downtime
+- 26 titik akses tercakup: token, theme, AI config, MJKN URL, window state, settings modul
 
 ### Integrasi Eksternal
 - **BPJS Kesehatan**: Vclaim, Antrian, Aplicare, Icare, Pcare — dengan status koneksi real-time (ping + latency)
